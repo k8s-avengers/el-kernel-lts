@@ -398,7 +398,7 @@ pushd linux-%{KVERREL} > /dev/null
 
 %ifarch x86_64
 %{__cp} config-%{version}-%{_target_cpu} .config
-%{__make} -s ARCH=%{_target_cpu} listnewconfig | %{__grep} -E '^CONFIG_' > newoptions-el8-%{_target_cpu}.txt || true
+%{__make} ARCH=%{_target_cpu} listnewconfig | %{__grep} -E '^CONFIG_' > newoptions-el8-%{_target_cpu}.txt || true
 if [ -s newoptions-el8-%{_target_cpu}.txt ]; then
     %{__cat} newoptions-el8-%{_target_cpu}.txt
     exit 1
@@ -421,7 +421,7 @@ for Dir in Documentation scripts tools; do
 done | %{_bindir}/xargs --no-run-if-empty pathfix.py -i %{__python3} -p -n | \
     %{__grep} -E -v 'no change' 2> /dev/null
 
-%{__make} -s distclean
+%{__make} distclean
 
 popd > /dev/null
 
@@ -432,19 +432,19 @@ pushd linux-%{KVERREL} > /dev/null
 %if %{with_default}
 %{__cp} config-%{version}-%{_target_cpu} .config
 
-%{__make} -s ARCH=%{_target_cpu} oldconfig
+%{__make} ARCH=%{_target_cpu} oldconfig
 
-%{__make} -s ARCH=%{_target_cpu} %{?_smp_mflags} bzImage
+%{__make} ARCH=%{_target_cpu} %{?_smp_mflags} bzImage
 
-%{__make} -s ARCH=%{_target_cpu} %{?_smp_mflags} modules || exit 1
+%{__make} ARCH=%{_target_cpu} %{?_smp_mflags} modules || exit 1
 %endif
 
 %if %{with_headers}
-%{__make} -s ARCH=%{_target_cpu} headers
+%{__make} ARCH=%{_target_cpu} headers
 %endif
 
 %global perf_make \
-    %{__make} -s -C tools/perf prefix=%{_prefix} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags}" PYTHON=%{__python3} WERROR=0 HAVE_CPLUS_DEMANGLE=1 NO_BIONIC=1 NO_GTK2=1 NO_LIBBABELTRACE=1 NO_LIBUNWIND=1 NO_LIBZSTD=1 NO_PERF_READ_VDSO32=1 NO_PERF_READ_VDSOX32=1 NO_STRLCPY=1
+    %{__make} -C tools/perf prefix=%{_prefix} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags}" PYTHON=%{__python3} WERROR=0 HAVE_CPLUS_DEMANGLE=1 NO_BIONIC=1 NO_GTK2=1 NO_LIBBABELTRACE=1 NO_LIBUNWIND=1 NO_LIBZSTD=1 NO_PERF_READ_VDSO32=1 NO_PERF_READ_VDSOX32=1 NO_STRLCPY=1
 
 %if %{with_perf}
 # Make sure that check-headers.sh is executable.
@@ -454,7 +454,7 @@ pushd linux-%{KVERREL} > /dev/null
 %endif
 
 %global tools_make \
-    %{__make} -s CFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags}"
+    %{__make} CFLAGS="${RPM_OPT_FLAGS}" LDFLAGS="%{__global_ldflags}"
 
 %if %{with_tools}
 # Make sure that version-gen.sh is executable.
@@ -470,32 +470,32 @@ pushd tools/power/cpupower/debug/x86_64 > /dev/null
 popd > /dev/null
 
 pushd tools/power/x86/x86_energy_perf_policy > /dev/null
-%{__make} -s
+%{__make}
 popd > /dev/null
 
 pushd tools/power/x86/turbostat > /dev/null
-%{__make} -s
+%{__make}
 popd > /dev/null
 
 pushd tools/power/x86/intel-speed-select > /dev/null
-%{__make} -s
+%{__make}
 popd > /dev/null
 
 pushd tools/thermal/tmon > /dev/null
-%{__make} -s
+%{__make}
 popd > /dev/null
 
 pushd tools/iio > /dev/null
-%{__make} -s
+%{__make}
 popd > /dev/null
 
 pushd tools/gpio > /dev/null
-%{__make} -s
+%{__make}
 popd > /dev/null
 %endif
 
 %global bpftool_make \
-    %{__make} -s EXTRA_CFLAGS="${RPM_OPT_FLAGS}" EXTRA_LDFLAGS="%{__global_ldflags}" DESTDIR=$RPM_BUILD_ROOT
+    %{__make} EXTRA_CFLAGS="${RPM_OPT_FLAGS}" EXTRA_LDFLAGS="%{__global_ldflags}" DESTDIR=$RPM_BUILD_ROOT
 
 %if %{with_bpftool} && %{with_default}
 pushd tools/bpf/bpftool > /dev/null
@@ -555,10 +555,10 @@ dd if=/dev/zero of=$RPM_BUILD_ROOT/boot/initramfs-$KernelVer.img bs=1M count=20
 
 # Override mod-fw because we don't want it to install any firmware.
 # We'll get it from the linux-firmware package and we don't want conflicts.
-%{__make} -s ARCH=%{_target_cpu} INSTALL_MOD_PATH=$RPM_BUILD_ROOT KERNELRELEASE=$KernelVer modules_install mod-fw=
+%{__make} ARCH=%{_target_cpu} INSTALL_MOD_PATH=$RPM_BUILD_ROOT KERNELRELEASE=$KernelVer modules_install mod-fw=
 
 %if %{with_vdso_install}
-%{__make} -s ARCH=%{_target_cpu} INSTALL_MOD_PATH=$RPM_BUILD_ROOT KERNELRELEASE=$KernelVer vdso_install
+%{__make} ARCH=%{_target_cpu} INSTALL_MOD_PATH=$RPM_BUILD_ROOT KERNELRELEASE=$KernelVer vdso_install
 %{_bindir}/find $RPM_BUILD_ROOT/lib/modules/$KernelVer/vdso -name 'vdso*.so' -type f | \
     %{_bindir}/xargs --no-run-if-empty %{__strip}
 %if 0
@@ -782,7 +782,7 @@ popd > /dev/null
 
 %if %{with_headers}
 # Install the kernel headers before installing any tools.
-%{__make} -s ARCH=%{_target_cpu} INSTALL_HDR_PATH=$RPM_BUILD_ROOT/usr headers_install
+%{__make} ARCH=%{_target_cpu} INSTALL_HDR_PATH=$RPM_BUILD_ROOT/usr headers_install
 
 %{_bindir}/find $RPM_BUILD_ROOT/usr/include ! -name '*.h' -type f | \
     %{_bindir}/xargs --no-run-if-empty %{__rm} -f
@@ -816,7 +816,7 @@ popd > /dev/null
 %{__mkdir_p} $RPM_BUILD_ROOT%{_mandir}/man8
 
 pushd tools/power/cpupower > /dev/null
-%{__make} -s DESTDIR=$RPM_BUILD_ROOT libdir=%{_libdir} mandir=%{_mandir} CPUFREQ_BENCH=false install
+%{__make} DESTDIR=$RPM_BUILD_ROOT libdir=%{_libdir} mandir=%{_mandir} CPUFREQ_BENCH=false install
 popd > /dev/null
 
 %{__rm} -f $RPM_BUILD_ROOT%{_libdir}/*.{a,la}
@@ -834,32 +834,32 @@ popd > /dev/null
 %{__install} -m 644 %{SOURCE3} $RPM_BUILD_ROOT%{_sysconfdir}/sysconfig/cpupower
 
 pushd tools/power/x86/x86_energy_perf_policy > /dev/null
-%{__make} -s DESTDIR=$RPM_BUILD_ROOT install
+%{__make} DESTDIR=$RPM_BUILD_ROOT install
 popd > /dev/null
 
 pushd tools/power/x86/turbostat > /dev/null
-%{__make} -s DESTDIR=$RPM_BUILD_ROOT install
+%{__make} DESTDIR=$RPM_BUILD_ROOT install
 popd > /dev/null
 
 pushd tools/power/x86/intel-speed-select > /dev/null
-%{__make} -s DESTDIR=$RPM_BUILD_ROOT install
+%{__make} DESTDIR=$RPM_BUILD_ROOT install
 popd > /dev/null
 
 pushd tools/thermal/tmon > /dev/null
-%{__make} -s INSTALL_ROOT=$RPM_BUILD_ROOT install
+%{__make} INSTALL_ROOT=$RPM_BUILD_ROOT install
 popd > /dev/null
 
 pushd tools/iio > /dev/null
-%{__make} -s DESTDIR=$RPM_BUILD_ROOT install
+%{__make} DESTDIR=$RPM_BUILD_ROOT install
 popd > /dev/null
 
 pushd tools/gpio > /dev/null
-%{__make} -s DESTDIR=$RPM_BUILD_ROOT install
+%{__make} DESTDIR=$RPM_BUILD_ROOT install
 popd > /dev/null
 
 pushd tools/kvm/kvm_stat > /dev/null
-%{__make} -s INSTALL_ROOT=$RPM_BUILD_ROOT install-tools
-%{__make} -s INSTALL_ROOT=$RPM_BUILD_ROOT install-man
+%{__make} INSTALL_ROOT=$RPM_BUILD_ROOT install-tools
+%{__make} INSTALL_ROOT=$RPM_BUILD_ROOT install-man
 popd > /dev/null
 %endif
 
