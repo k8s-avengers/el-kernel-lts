@@ -481,10 +481,6 @@ pushd tools/power/x86/intel-speed-select > /dev/null
 %{__make}
 popd > /dev/null
 
-pushd tools/thermal/tmon > /dev/null
-%{__make}
-popd > /dev/null
-
 pushd tools/iio > /dev/null
 %{__make}
 popd > /dev/null
@@ -845,10 +841,6 @@ pushd tools/power/x86/intel-speed-select > /dev/null
 %{__make} DESTDIR=$RPM_BUILD_ROOT install
 popd > /dev/null
 
-pushd tools/thermal/tmon > /dev/null
-%{__make} INSTALL_ROOT=$RPM_BUILD_ROOT install
-popd > /dev/null
-
 pushd tools/iio > /dev/null
 %{__make} DESTDIR=$RPM_BUILD_ROOT install
 popd > /dev/null
@@ -1045,7 +1037,6 @@ fi
 %{_bindir}/x86_energy_perf_policy
 %{_bindir}/turbostat
 %{_bindir}/intel-speed-select
-%{_bindir}/tmon
 %{_bindir}/iio_event_monitor
 %{_bindir}/iio_generic_buffer
 %{_bindir}/lsiio
