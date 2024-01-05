@@ -60,8 +60,8 @@ FROM alpine:latest
 
 WORKDIR /out
 
-COPY --from=builder /root/rpmbuild/RPMS /out/
-COPY --from=builder /root/rpmbuild/SRPMS /out/
+COPY --from=builder /root/rpmbuild/RPMS /out/RPMS/
+COPY --from=builder /root/rpmbuild/SRPMS /out/SRPMS/
 
 RUN ls -laR /out
 
