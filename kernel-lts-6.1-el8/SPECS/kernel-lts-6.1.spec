@@ -42,8 +42,6 @@
 %define with_doc 0
 %define doc_build_fail true
 %define zipmodules 1
-### as of kernel-lts-6.5.4, no more bpftool -ay
-%define with_bpftool 0
 %endif
 
 # Documentation.
@@ -107,7 +105,6 @@ BuildRequires: asciidoc python3-sphinx xmlto
 BuildRequires: asciidoc audit-libs-devel binutils-devel bison flex
 BuildRequires: java-devel libcap-devel newt-devel numactl-devel
 BuildRequires: perl(ExtUtils::Embed) xmlto xz-devel zlib-devel
-BuildRequires: libtraceevent-devel
 %endif
 %if %{with_tools}
 BuildRequires: asciidoc gettext libcap-devel libnl3-devel ncurses-devel pciutils-devel
@@ -1135,5 +1132,5 @@ fi
 
 %changelog
 * Mon Jan 01 2024 R.Pardini <ricardo@pardini.net> - 6.1.70-1
-- Takeover from Elrepo, downgrade 6.6 to 6.1; currently 6.1.70
+- Takeover from Elrepo, updade 5.4 to 6.1, downgrade 6.6 to 6.1; currently 6.1.70
 
