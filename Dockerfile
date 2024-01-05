@@ -17,19 +17,21 @@ ARG KVERSION="${KERNEL_VERSION_FULL_RPM}.x86_64"
 ARG PX_FUSE_REPO="https://github.com/rpardini/px-fuse-mainline.git"
 ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes"
 
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# Common shared basebuilder; definitely build this with --pull so it doesn't bitrot
 FROM rockylinux:${EL_VERSION} AS basebuilder
 
 # Common deps across all kernels; try to have as much as possible here so cache is reused
-# Developer tools for kernel building; "dwarves" for "pahole"; "yum-utils" for "yum-builddep"; @TODO "pciutils-libs" needed install headers/devel
+# Developer tools for kernel building, from baseos; "yum-utils" for "yum-builddep"; "pciutils-libs" needed to install headers/devel later
 RUN dnf -y groupinstall 'Development Tools'
-RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils
+RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils pciutils-libs
 RUN dnf config-manager --set-enabled powertools
-RUN dnf -y install dwarves
+RUN dnf -y install dwarves # for pahole (BTF stuff); powertools el8 carries 1.22
 
 # For kernel building...
-FROM basebuilder as builder
+FROM basebuilder as kernelbuilder
 
-# ARGs are lost everytime FROM is used, but if we redefine them here, they will be available
+# ARGs are lost everytime FROM is used, redeclare to get the global ones at the top of this Dockerfile
 ARG EL_MAJOR_VERSION
 ARG EL_MINOR_VERSION
 ARG EL_VERSION
@@ -38,18 +40,15 @@ ARG KERNEL_MINOR
 ARG KERNEL_PKG
 ARG KERNEL_VERSION
 
+# Stage specific args
 ARG KERNEL_RPM_DIR="${KERNEL_PKG}-${KERNEL_VERSION}-el${EL_MAJOR_VERSION}"
 ARG KERNEL_SPEC_FILE="${KERNEL_PKG}-${KERNEL_VERSION}.spec"
 ARG COMMON_RPM_DIR="common-el${EL_MAJOR_VERSION}"
 
 WORKDIR /root/rpmbuild
-
 ADD ${KERNEL_RPM_DIR}/SPECS /root/rpmbuild/SPECS
 
-RUN tree /root
-
 WORKDIR /root/rpmbuild/SPECS
-
 # install build dependencies from the spec file
 RUN yum-builddep -y ${KERNEL_SPEC_FILE}
 
@@ -59,29 +58,30 @@ ADD ${COMMON_RPM_DIR}/SOURCES /root/rpmbuild/SOURCES
 # Now add the SOURCES specific to this kernel
 ADD ${KERNEL_RPM_DIR}/SOURCES/* /root/rpmbuild/SOURCES/
 
-# download the sources mentioned in the spec (eg: the kernel tarball)
+# download the sources mentioned in the spec (eg: the kernel tarball); ideally add them to basebuilder for better cache hit ratio
 RUN spectool -g -R ${KERNEL_SPEC_FILE}
 
 # prepares the SRPM, which checks that all sources are indeed in place
 RUN rpmbuild -bs ${KERNEL_SPEC_FILE}
 
 # Actually build the binary RPMs
-# Consider that /root/rpmbuild/BUILD is around 25GB right now, so exporting this layer will take a while and will fill your host's disk
-RUN time rpmbuild -bb ${KERNEL_SPEC_FILE} # && rm -rf /root/rpmbuild/BUILD
+# Consider that /root/rpmbuild/BUILD is 25GB+ after the build, so exporting it to layer would take a while and will fill your host's disk. Remove it.
+RUN time rpmbuild -bb ${KERNEL_SPEC_FILE} && rm -rf /root/rpmbuild/BUILD
 
-RUN du -h -d 1 -x /root/rpmbuild && echo yes
+RUN du -h -d 1 -x /root/rpmbuild
 
-# PX Module builder
+# PX Module kernelbuilder
 FROM basebuilder as pxbuilder
 
+# ARGs are lost everytime FROM is used, redeclare to get the global ones at the top of this Dockerfile
 ARG KVERSION
 ARG PX_FUSE_REPO
 ARG PX_FUSE_BRANCH
 
 WORKDIR /temprpm
-COPY --from=builder /root/rpmbuild/RPMS/x86_64/kernel-*-headers-*.rpm /temprpm/
-COPY --from=builder /root/rpmbuild/RPMS/x86_64/kernel-*-devel-*.rpm /temprpm/
-COPY --from=builder /root/rpmbuild/RPMS/x86_64/kernel-*-tools-*.rpm /temprpm/
+COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel-*-headers-*.rpm /temprpm/
+COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel-*-devel-*.rpm /temprpm/
+COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel-*-tools-*.rpm /temprpm/
 RUN yum install -y /temprpm/kernel-*.rpm --allowerasing
 
 WORKDIR /src/
@@ -103,8 +103,8 @@ FROM alpine:latest
 
 WORKDIR /out
 
-COPY --from=builder /root/rpmbuild/RPMS /out/RPMS/
-COPY --from=builder /root/rpmbuild/SRPMS /out/SRPMS/
+COPY --from=kernelbuilder /root/rpmbuild/RPMS /out/RPMS/
+COPY --from=kernelbuilder /root/rpmbuild/SRPMS /out/SRPMS/
 
 COPY --from=pxbuilder /out-px/RPMS /out/RPMS/
 COPY --from=pxbuilder /out-px/SRPMS /out/SRPMS/
