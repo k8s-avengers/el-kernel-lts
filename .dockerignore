@@ -4,3 +4,4 @@ kernel-lts-*/BUILDROOT
 kernel-lts-*/BUILD
 kernel-lts-*/SRPMS
 kernel-lts-*/SOURCES/linux-*.tar.xz
+out*
