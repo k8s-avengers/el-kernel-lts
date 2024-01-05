@@ -66,7 +66,8 @@ RUN yum install automake autoconf gcc-c++
 WORKDIR /temprpm
 COPY --from=builder /root/rpmbuild/RPMS/x86_64/kernel-*-headers-*.rpm /temprpm/
 COPY --from=builder /root/rpmbuild/RPMS/x86_64/kernel-*-devel-*.rpm /temprpm/
-RUN yum install -y /temprpm/kernel-*.rpm
+COPY --from=builder /root/rpmbuild/RPMS/x86_64/kernel-*-tools-*.rpm /temprpm/
+RUN yum install -y /temprpm/kernel-*.rpm --allowerasing
 
 WORKDIR /src/
 RUN git clone https://github.com/portworx/px-fuse.git
