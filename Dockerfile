@@ -2,7 +2,7 @@ ARG EL_MAJOR_VERSION=8
 ARG EL_MINOR_VERSION=9
 ARG EL_VERSION=${EL_MAJOR_VERSION}.${EL_MINOR_VERSION}
 
-FROM rockylinux:${EL_VERSION}
+FROM rockylinux:${EL_VERSION} AS builder
 
 # Common deps across all kernels; try to have as much as possible here so cache is reused
 # Developer tools for kernel building; "dwarves" for "pahole"; "yum-utils" for "yum-builddep"
@@ -50,6 +50,16 @@ RUN spectool -g -R ${KERNEL_SPEC_FILE}
 RUN rpmbuild -bs ${KERNEL_SPEC_FILE}
 
 # Actually build the binary RPMs
-RUN time rpmbuild -bb ${KERNEL_SPEC_FILE}
+# Consider that /root/rpmbuild/BUILD is around 25GB right now, so exporting this layer will take a while and will fill your host's disk
+RUN time rpmbuild -bb ${KERNEL_SPEC_FILE} # && rm -rf /root/rpmbuild/BUILD
 
+# Copy the RPMs to a new Alpine image for easy droppage of the .rpm's to host/etc
+FROM alpine:latest
+
+WORKDIR /out
+
+COPY --from=builder /root/rpmbuild/RPMS /out/
+COPY --from=builder /root/rpmbuild/SRPMS /out/
+
+RUN ls -laR /out
 
