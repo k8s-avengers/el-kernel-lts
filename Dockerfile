@@ -77,7 +77,7 @@ RUN autoreconf
 RUN ./configure
 #RUN make KVERSION=5.4.265-1.el8.x86_64
 RUN make rpm KVERSION=5.4.265-1.el8.x86_64
-
+RUN ls -la /src/px-fuse/rpm/px/RPMS/x86_64/*.rpm || true
 
 # Copy the RPMs to a new Alpine image for easy droppage of the .rpm's to host/etc
 FROM alpine:latest
