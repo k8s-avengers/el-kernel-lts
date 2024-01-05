@@ -2,7 +2,7 @@ ARG EL_MAJOR_VERSION=8
 ARG EL_MINOR_VERSION=9
 ARG EL_VERSION=${EL_MAJOR_VERSION}.${EL_MINOR_VERSION}
 
-FROM rockylinux:${EL_VERSION} AS builder
+FROM rockylinux:${EL_VERSION} AS basebuilder
 
 # Common deps across all kernels; try to have as much as possible here so cache is reused
 # Developer tools for kernel building; "dwarves" for "pahole"; "yum-utils" for "yum-builddep"
@@ -10,6 +10,9 @@ RUN dnf -y groupinstall 'Development Tools'
 RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils
 RUN dnf config-manager --set-enabled powertools
 RUN dnf -y install dwarves
+
+# For kernel building...
+FROM basebuilder as builder
 
 # ARGs are lost everytime FROM is used, but if we redefine them here, they will be available
 ARG EL_MAJOR_VERSION
@@ -55,6 +58,21 @@ RUN time rpmbuild -bb ${KERNEL_SPEC_FILE} # && rm -rf /root/rpmbuild/BUILD
 
 RUN du -h -d 1 -x /root/rpmbuild && echo yes
 
+# PX Module builder
+FROM basebuilder as pxbuilder
+
+RUN yum install automake autoconf gcc-g++
+
+WORKDIR /src/
+RUN git clone https://github.com/portworx/px-fuse.git
+WORKDIR /src/px-fuse
+RUN git checkout v3.0.4
+#RUN autoreconf
+#RUN ./configure
+#RUN make
+RUN make rpm
+
+
 # Copy the RPMs to a new Alpine image for easy droppage of the .rpm's to host/etc
 FROM alpine:latest
 
@@ -62,6 +80,9 @@ WORKDIR /out
 
 COPY --from=builder /root/rpmbuild/RPMS /out/RPMS/
 COPY --from=builder /root/rpmbuild/SRPMS /out/SRPMS/
+
+COPY --from=pxbuilder /src/px-fuse/rpm/px/RPMS /out/RPMS/
+COPY --from=pxbuilder /src/px-fuse/rpm/px/SRPMS /out/SRPMS/
 
 RUN ls -laR /out
 
