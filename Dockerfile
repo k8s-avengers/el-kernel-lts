@@ -61,7 +61,7 @@ RUN du -h -d 1 -x /root/rpmbuild && echo yes
 # PX Module builder
 FROM basebuilder as pxbuilder
 
-RUN yum install automake autoconf gcc-g++
+RUN yum install automake autoconf gcc-c++
 
 WORKDIR /src/
 RUN git clone https://github.com/portworx/px-fuse.git
