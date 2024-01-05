@@ -12,6 +12,9 @@
 # Define the version of the Linux Kernel Archive tarball.
 %define LKAver 6.1.70
 
+# Otherwise we get 'error: Installed (but unpackaged) file(s) found:' for '/usr/lib64/traceevent/plugins/plugin_cfg80211.so' and others.
+%define _unpackaged_files_terminate_build 0
+
 # Define the buildid, if required.
 #define buildid .local
 
