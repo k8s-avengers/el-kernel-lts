@@ -53,6 +53,8 @@ RUN rpmbuild -bs ${KERNEL_SPEC_FILE}
 # Consider that /root/rpmbuild/BUILD is around 25GB right now, so exporting this layer will take a while and will fill your host's disk
 RUN time rpmbuild -bb ${KERNEL_SPEC_FILE} # && rm -rf /root/rpmbuild/BUILD
 
+RUN du -h -d 1 -x /root/rpmbuild && echo yes
+
 # Copy the RPMs to a new Alpine image for easy droppage of the .rpm's to host/etc
 FROM alpine:latest
 
