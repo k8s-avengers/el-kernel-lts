@@ -67,9 +67,9 @@ WORKDIR /src/
 RUN git clone https://github.com/portworx/px-fuse.git
 WORKDIR /src/px-fuse
 RUN git checkout v3.0.4
-#RUN autoreconf
-#RUN ./configure
-#RUN make
+RUN autoreconf
+RUN ./configure
+RUN make
 RUN make rpm
 
 
