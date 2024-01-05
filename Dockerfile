@@ -75,7 +75,7 @@ WORKDIR /src/px-fuse
 RUN git checkout v3.0.4
 RUN autoreconf
 RUN ./configure
-RUN make KVERSION=5.4.265-1.el8.x86_64
+#RUN make KVERSION=5.4.265-1.el8.x86_64
 RUN make rpm KVERSION=5.4.265-1.el8.x86_64
 
 
