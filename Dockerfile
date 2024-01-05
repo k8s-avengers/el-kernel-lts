@@ -76,7 +76,7 @@ RUN git checkout v3.0.4
 RUN autoreconf
 RUN ./configure
 RUN make KVERSION=5.4.265-1.el8.x86_64
-RUN make rpm
+RUN make rpm KVERSION=5.4.265-1.el8.x86_64
 
 
 # Copy the RPMs to a new Alpine image for easy droppage of the .rpm's to host/etc
