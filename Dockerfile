@@ -2,10 +2,25 @@ ARG EL_MAJOR_VERSION=8
 ARG EL_MINOR_VERSION=9
 ARG EL_VERSION=${EL_MAJOR_VERSION}.${EL_MINOR_VERSION}
 
+ARG KERNEL_MAJOR=5
+ARG KERNEL_MINOR=4
+ARG KERNEL_PKG="kernel-lt"
+ARG KERNEL_POINT_RELEASE=265
+ARG KERNEL_RPM_VERSION=1
+
+ARG KERNEL_VERSION="${KERNEL_MAJOR}.${KERNEL_MINOR}"
+ARG KERNEL_VERSION_FULL="${KERNEL_VERSION}.${KERNEL_POINT_RELEASE}"
+ARG KERNEL_VERSION_FULL_RPM="${KERNEL_VERSION_FULL}-${KERNEL_RPM_VERSION}.el${EL_MAJOR_VERSION}"
+
+# Used for PX module rpm building
+ARG KVERSION="${KERNEL_VERSION_FULL_RPM}.x86_64"
+ARG PX_FUSE_REPO="https://github.com/rpardini/px-fuse-mainline.git"
+ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes"
+
 FROM rockylinux:${EL_VERSION} AS basebuilder
 
 # Common deps across all kernels; try to have as much as possible here so cache is reused
-# Developer tools for kernel building; "dwarves" for "pahole"; "yum-utils" for "yum-builddep"
+# Developer tools for kernel building; "dwarves" for "pahole"; "yum-utils" for "yum-builddep"; @TODO "pciutils-libs" needed install headers/devel
 RUN dnf -y groupinstall 'Development Tools'
 RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils
 RUN dnf config-manager --set-enabled powertools
@@ -18,13 +33,11 @@ FROM basebuilder as builder
 ARG EL_MAJOR_VERSION
 ARG EL_MINOR_VERSION
 ARG EL_VERSION
+ARG KERNEL_MAJOR
+ARG KERNEL_MINOR
+ARG KERNEL_PKG
+ARG KERNEL_VERSION
 
-ARG KERNEL_MAJOR=5
-ARG KERNEL_MINOR=4
-ARG KERNEL_PKG="kernel-lt"
-
-
-ARG KERNEL_VERSION=${KERNEL_MAJOR}.${KERNEL_MINOR}
 ARG KERNEL_RPM_DIR="${KERNEL_PKG}-${KERNEL_VERSION}-el${EL_MAJOR_VERSION}"
 ARG KERNEL_SPEC_FILE="${KERNEL_PKG}-${KERNEL_VERSION}.spec"
 ARG COMMON_RPM_DIR="common-el${EL_MAJOR_VERSION}"
@@ -61,8 +74,9 @@ RUN du -h -d 1 -x /root/rpmbuild && echo yes
 # PX Module builder
 FROM basebuilder as pxbuilder
 
-# @TODO fixme: for auto-changelog/updater later
-ARG KVERSION="5.4.265-1.el8.x86_64" 
+ARG KVERSION
+ARG PX_FUSE_REPO
+ARG PX_FUSE_BRANCH
 
 WORKDIR /temprpm
 COPY --from=builder /root/rpmbuild/RPMS/x86_64/kernel-*-headers-*.rpm /temprpm/
@@ -71,10 +85,10 @@ COPY --from=builder /root/rpmbuild/RPMS/x86_64/kernel-*-tools-*.rpm /temprpm/
 RUN yum install -y /temprpm/kernel-*.rpm --allowerasing
 
 WORKDIR /src/
-RUN git clone https://github.com/rpardini/px-fuse-mainline.git px-fuse # https://github.com/portworx/px-fuse.git
+RUN git clone ${PX_FUSE_REPO} px-fuse # https://github.com/portworx/px-fuse.git
 
 WORKDIR /src/px-fuse
-RUN git checkout v3.0.4-rpm-fixes # v3.0.4
+RUN git checkout ${PX_FUSE_BRANCH} # v3.0.4
 RUN autoreconf && ./configure # Needed to get a root Makefile
 RUN make rpm KVERSION=${KVERSION}
 RUN ls -laht rpm/px/RPMS/x86_64/*.rpm
