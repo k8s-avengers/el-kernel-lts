@@ -63,6 +63,9 @@ FROM basebuilder as pxbuilder
 
 RUN yum install automake autoconf gcc-c++
 
+# @TODO fixme: for auto-changelog/updater later
+ARG KVERSION="5.4.265-1.el8.x86_64" 
+
 WORKDIR /temprpm
 COPY --from=builder /root/rpmbuild/RPMS/x86_64/kernel-*-headers-*.rpm /temprpm/
 COPY --from=builder /root/rpmbuild/RPMS/x86_64/kernel-*-devel-*.rpm /temprpm/
@@ -71,14 +74,17 @@ RUN yum install -y /temprpm/kernel-*.rpm --allowerasing
 
 WORKDIR /src/
 RUN git clone https://github.com/rpardini/px-fuse-mainline.git px-fuse # https://github.com/portworx/px-fuse.git
+
 WORKDIR /src/px-fuse
 RUN git checkout v3.0.4-rpm-fixes # v3.0.4
-RUN autoreconf
-RUN ./configure
-#RUN make KVERSION=5.4.265-1.el8.x86_64
-RUN make rpm KVERSION=5.4.265-1.el8.x86_64
-RUN ls -la /src/px-fuse/rpm/px/RPMS/x86_64/*.rpm || true
-RUN find /src/px-fuse/rpm -type f || true
+RUN autoreconf && ./configure # Needed to get a root Makefile
+RUN make rpm KVERSION=${KVERSION}
+RUN ls -laht rpm/px/RPMS/x86_64/*.rpm
+RUN ls -laht rpm/px/SRPMS/*.rpm
+
+RUN mkdir /out-px
+RUN cp -rvp rpm/px/RPMS /out-px/
+RUN cp -rvp rpm/px/SRPMS /out-px/
 
 # Copy the RPMs to a new Alpine image for easy droppage of the .rpm's to host/etc
 FROM alpine:latest
@@ -88,8 +94,8 @@ WORKDIR /out
 COPY --from=builder /root/rpmbuild/RPMS /out/RPMS/
 COPY --from=builder /root/rpmbuild/SRPMS /out/SRPMS/
 
-COPY --from=pxbuilder /src/px-fuse/rpm/px/RPMS/x86_64/*.rpm /out/RPMS/
-COPY --from=pxbuilder /src/px-fuse/rpm/px/SRPMS/* /out/SRPMS/
+COPY --from=pxbuilder /out-px/RPMS /out/RPMS/
+COPY --from=pxbuilder /out-px/SRPMS /out/SRPMS/
 
 RUN ls -laR /out
 
