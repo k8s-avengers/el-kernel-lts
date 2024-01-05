@@ -87,8 +87,8 @@ WORKDIR /out
 COPY --from=builder /root/rpmbuild/RPMS /out/RPMS/
 COPY --from=builder /root/rpmbuild/SRPMS /out/SRPMS/
 
-COPY --from=pxbuilder /src/px-fuse/rpm/px/RPMS /out/RPMS/
-COPY --from=pxbuilder /src/px-fuse/rpm/px/SRPMS /out/SRPMS/
+COPY --from=pxbuilder /src/px-fuse/rpm/px/RPMS/x86_64/*.rpm /out/RPMS/
+COPY --from=pxbuilder /src/px-fuse/rpm/px/SRPMS/* /out/SRPMS/
 
 RUN ls -laR /out
 
