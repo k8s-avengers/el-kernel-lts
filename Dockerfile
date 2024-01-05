@@ -61,8 +61,6 @@ RUN du -h -d 1 -x /root/rpmbuild && echo yes
 # PX Module builder
 FROM basebuilder as pxbuilder
 
-RUN yum install automake autoconf gcc-c++
-
 # @TODO fixme: for auto-changelog/updater later
 ARG KVERSION="5.4.265-1.el8.x86_64" 
 
