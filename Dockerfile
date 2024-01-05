@@ -63,6 +63,10 @@ FROM basebuilder as pxbuilder
 
 RUN yum install automake autoconf gcc-c++
 
+WORKDIR /temprpm
+COPY --from=builder /root/rpmbuild/RPMS/x86_64/kernel-headers* /temprpm/
+RUN yum install -y /temprpm/kernel-headers*
+
 WORKDIR /src/
 RUN git clone https://github.com/portworx/px-fuse.git
 WORKDIR /src/px-fuse
