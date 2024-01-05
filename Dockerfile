@@ -13,6 +13,7 @@ ARG KERNEL_POINT_RELEASE=70
 #ARG KERNEL_POINT_RELEASE=265
 
 ARG KERNEL_RPM_VERSION=1
+ARG PAHOLE_VERSION="v1.25"
 
 ARG KERNEL_VERSION="${KERNEL_MAJOR}.${KERNEL_MINOR}"
 ARG KERNEL_VERSION_FULL="${KERNEL_VERSION}.${KERNEL_POINT_RELEASE}"
@@ -28,11 +29,28 @@ ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes"
 FROM rockylinux:${EL_VERSION} AS basebuilder
 
 # Common deps across all kernels; try to have as much as possible here so cache is reused
-# Developer tools for kernel building, from baseos; "yum-utils" for "yum-builddep"; "pciutils-libs" needed to install headers/devel later
+# Developer tools for kernel building, from baseos; "yum-utils" for "yum-builddep"; "pciutils-libs" needed to install headers/devel later; cmake for pahole
 RUN dnf -y groupinstall 'Development Tools'
-RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils pciutils-libs
+RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils pciutils-libs cmake
 RUN dnf config-manager --set-enabled powertools
-RUN dnf -y install dwarves # for pahole (BTF stuff); powertools el8 carries 1.22
+RUN dnf -y install dwarves # for pahole (BTF stuff); powertools el8 carries 1.22, we will rebuild below, but need the package anyway to satisfy deps
+
+# FROM resets ARGs, so we need to redeclare them here
+ARG PAHOLE_VERSION
+
+# We need to build pahole from source, as the one in powertools is too old; we'll just overwrite the system one ("dwarves" yum pkg is still needed for deps)
+WORKDIR /src
+RUN git clone https://git.kernel.org/pub/scm/devel/pahole/pahole.git
+WORKDIR /src/pahole
+RUN git -c advice.detachedHead=false checkout "${PAHOLE_VERSION}"
+RUN mkdir -p build
+WORKDIR /src/pahole/build
+RUN cmake -D__LIB=lib -DCMAKE_INSTALL_PREFIX=/usr ..
+RUN make install
+RUN ldconfig
+RUN pahole --version && which pahole
+WORKDIR /src
+
 
 # For kernel building...
 FROM basebuilder as kernelbuilder
