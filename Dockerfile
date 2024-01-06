@@ -1,27 +1,26 @@
 ARG EL_MAJOR_VERSION=8
 ARG EL_MINOR_VERSION=9
-ARG EL_VERSION=${EL_MAJOR_VERSION}.${EL_MINOR_VERSION}
 
 ARG KERNEL_MAJOR=6
 ARG KERNEL_MINOR=1
 ARG KERNEL_POINT_RELEASE=70
 ARG KERNEL_PKG="kernel-lts"
 
-ARG KERNEL_RPM_VERSION=666
 ARG PAHOLE_VERSION="v1.25"
 
+ARG PX_FUSE_REPO="https://github.com/rpardini/px-fuse-mainline.git"
+ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes"
+
+# Derived args
+ARG EL_VERSION=${EL_MAJOR_VERSION}.${EL_MINOR_VERSION}
 ARG KERNEL_VERSION="${KERNEL_MAJOR}.${KERNEL_MINOR}"
 ARG KERNEL_VERSION_FULL="${KERNEL_VERSION}.${KERNEL_POINT_RELEASE}"
 
+ARG KERNEL_RPM_VERSION=666
 ARG KERNEL_EXTRAVERSION="${KERNEL_RPM_VERSION}.el${EL_MAJOR_VERSION}"
 
-
-ARG KERNEL_VERSION_FULL_RPM="${KERNEL_VERSION_FULL}-${KERNEL_RPM_VERSION}.el${EL_MAJOR_VERSION}"
-
-# Used for PX module rpm building
-ARG KVERSION="${KERNEL_VERSION_FULL_RPM}.x86_64"
-ARG PX_FUSE_REPO="https://github.com/rpardini/px-fuse-mainline.git"
-ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes"
+# Used for PX module rpm building; KVERSION_PX is the dir under /usr/src/kernels/
+ARG KVERSION_PX="${KERNEL_VERSION_FULL}-${KERNEL_EXTRAVERSION}"
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Common shared basebuilder; definitely build this with --pull so it doesn't bitrot
@@ -41,7 +40,7 @@ RUN gcc --version
 # FROM resets ARGs, so we need to redeclare them here
 ARG PAHOLE_VERSION
 
-# We need to build pahole from source, as the one in powertools is too old; we'll just overwrite the system one ("dwarves" yum pkg is still needed for deps)
+# We need to build pahole from source, as the one in powertools is too old
 WORKDIR /src
 RUN git clone https://git.kernel.org/pub/scm/devel/pahole/pahole.git
 WORKDIR /src/pahole
@@ -118,35 +117,34 @@ RUN make kernelversion
 RUN make -j$(($(nproc --all)*2)) rpm-pkg
 
 RUN du -h -d 1 -x /root/rpmbuild
-RUN tree /root/rpmbuild
+RUN tree /root/rpmbuild/RPMS
+RUN tree /root/rpmbuild/SRPMS
 
 # PX Module kernelbuilder
 FROM basebuilder as pxbuilder
 
 # ARGs are lost everytime FROM is used, redeclare to get the global ones at the top of this Dockerfile
-ARG KVERSION
+ARG KVERSION_PX
 ARG PX_FUSE_REPO
 ARG PX_FUSE_BRANCH
 
 WORKDIR /temprpm
-COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel-headers-*.rpm /temprpm/
+COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel-devel-*.rpm /temprpm/
 RUN yum install -y /temprpm/kernel-*.rpm --allowerasing
 
 WORKDIR /src/
 RUN git clone ${PX_FUSE_REPO} px-fuse # https://github.com/portworx/px-fuse.git
 
-# check again what gcc version is being used
+# check again what gcc version is being used; show headers installed etc
 RUN gcc --version
+RUN yum list installed | grep kernel-devel
+RUN ls -la /usr/src/kernels
 
 WORKDIR /src/px-fuse
 RUN git checkout ${PX_FUSE_BRANCH} # v3.0.4
 RUN autoreconf && ./configure # Needed to get a root Makefile
 
-RUN yum list installed | grep kernel-headers
-RUN ls -la /usr/src/kernels
-RUN dnf repoquery -l kernel-headers
-
-RUN make rpm KVERSION=${KVERSION}
+RUN make rpm KVERSION=${KVERSION_PX}
 RUN ls -laht rpm/px/RPMS/x86_64/*.rpm
 RUN ls -laht rpm/px/SRPMS/*.rpm
 
