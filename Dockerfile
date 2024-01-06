@@ -4,13 +4,8 @@ ARG EL_VERSION=${EL_MAJOR_VERSION}.${EL_MINOR_VERSION}
 
 ARG KERNEL_MAJOR=6
 ARG KERNEL_MINOR=1
-ARG KERNEL_PKG="kernel-lts"
 ARG KERNEL_POINT_RELEASE=70
-
-#ARG KERNEL_MAJOR=5
-#ARG KERNEL_MINOR=4
-#ARG KERNEL_PKG="kernel-lt"
-#ARG KERNEL_POINT_RELEASE=265
+ARG KERNEL_PKG="kernel-lts"
 
 ARG KERNEL_RPM_VERSION=1
 ARG PAHOLE_VERSION="v1.25"
@@ -29,11 +24,9 @@ ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes"
 FROM rockylinux:${EL_VERSION} AS basebuilder
 
 # Common deps across all kernels; try to have as much as possible here so cache is reused
-# Developer tools for kernel building, from baseos; "yum-utils" for "yum-builddep"; "pciutils-libs" needed to install headers/devel later; cmake for pahole
+# Developer tools for kernel building, from baseos; "yum-utils" for "yum-builddep"; "pciutils-libs" needed to install headers/devel later; cmake for building pahole
 RUN dnf -y groupinstall 'Development Tools'
 RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils pciutils-libs cmake
-#RUN dnf config-manager --set-enabled powertools
-#RUN dnf -y install dwarves # for pahole (BTF stuff); powertools el8 carries 1.22, we will rebuild below, but need the package anyway to satisfy deps
 RUN dnf -y install gcc-toolset-12 # 12.2.1-7 at the time of writing
 
 # Use gcc-12 toolchain as default
@@ -69,30 +62,27 @@ ARG KERNEL_MAJOR
 ARG KERNEL_MINOR
 ARG KERNEL_PKG
 ARG KERNEL_VERSION
+ARG KERNEL_VERSION_FULL
 
 # Stage specific args
-ARG KERNEL_RPM_DIR="${KERNEL_PKG}-${KERNEL_VERSION}-el${EL_MAJOR_VERSION}"
-ARG KERNEL_SPEC_FILE="${KERNEL_PKG}-${KERNEL_VERSION}.spec"
-ARG COMMON_RPM_DIR="common-el${EL_MAJOR_VERSION}"
+ARG KERNEL_STUFF_DIR="${KERNEL_PKG}-${KERNEL_VERSION}"
 
-WORKDIR /root/rpmbuild
-ADD ${KERNEL_RPM_DIR}/SPECS /root/rpmbuild/SPECS
+WORKDIR /build
 
-WORKDIR /root/rpmbuild/SPECS
-# install build dependencies from the spec file
-RUN yum-builddep -y ${KERNEL_SPEC_FILE}
+# Get the kernel tree via Docker
+ADD https://www.kernel.org/pub/linux/kernel/v${KERNEL_MAJOR}.x/linux-${KERNEL_VERSION_FULL}.tar.xz /build/
+RUN tar -xf /build/linux-${KERNEL_VERSION_FULL}.tar.xz -C /build/
+RUN ls -la /build/
+RUN exit 1
 
-# Add the common SOURCES:
-ADD ${COMMON_RPM_DIR}/SOURCES /root/rpmbuild/SOURCES
-
-# Now add the SOURCES specific to this kernel
-ADD ${KERNEL_RPM_DIR}/SOURCES/* /root/rpmbuild/SOURCES/
-
-# download the sources mentioned in the spec (eg: the kernel tarball); ideally add them to basebuilder for better cache hit ratio
-RUN spectool -g -R ${KERNEL_SPEC_FILE}
+# Add configs/patches/etc; for now only config
+ADD ${KERNEL_STUFF_DIR} /build/stuff
 
 # check again what gcc version is being used
 RUN gcc --version
+
+# Copy the config to the kernel tree
+RUN cp /build/stuff/config /build/linux-${KERNEL_VERSION_FULL}/.config
 
 # prepares the SRPM, which checks that all sources are indeed in place
 RUN rpmbuild -bs ${KERNEL_SPEC_FILE}
