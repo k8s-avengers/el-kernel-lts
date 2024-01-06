@@ -101,9 +101,9 @@ RUN sed -i 's/^EXTRAVERSION.*/EXTRAVERSION = -${KERNEL_EXTRAVERSION}/' Makefile
 RUN cat Makefile | grep EXTRAVERSION
 
 # Patch the rpm base package Name: in mkspec; so instead of "kernel" we get "kernel-lts-61y"
-#RUN sed -i 's/Name: kernel/Name: kernel-lts-${KERNEL_MAJOR}${KERNEL_MINOR}y/' scripts/package/mkspec
+RUN sed -i 's/Name: kernel/Name: kernel-lts-${KERNEL_MAJOR}${KERNEL_MINOR}y/' scripts/package/mkspec
 # Same, for the kernel-devel description
-#RUN sed -i 's/%description -n kernel-devel/%description -n kernel-lts-${KERNEL_MAJOR}${KERNEL_MINOR}y-devel/' scripts/package/mkspec
+RUN sed -i 's/%description -n kernel-devel/%description -n kernel-lts-${KERNEL_MAJOR}${KERNEL_MINOR}y-devel/' scripts/package/mkspec
 
 RUN cat scripts/package/mkspec | grep -e "Name:" -e "description"
 
@@ -112,13 +112,8 @@ RUN cat .config | grep -e "EXTRAVERSION" -e "GCC" -e "PAHOLE" -e "DWARF" -e "BTF
 RUN make kernelrelease
 RUN make kernelversion
 
-## Build the kernel (this does NOT give out a -devel package, which is what we want)
-#RUN make -j$(nproc) bzImage
-#RUN make -j$(nproc) modules
-#RUN make -j$(nproc) binrpm-pkg
-
 # rpm-pkg does CLEAN so fucks up everything, either do it once or don't. binrpm-pkg packages a prebuilt thingy
-RUN make -j$(($(nproc --all)*2)) rpm-pkg RPMOPTS='-vv' 
+RUN make -j$(($(nproc --all)*2)) rpm-pkg
 
 RUN du -h -d 1 -x /root/rpmbuild
 RUN tree /root/rpmbuild/RPMS
