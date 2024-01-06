@@ -554,11 +554,11 @@ dd if=/dev/zero of=$RPM_BUILD_ROOT/boot/initramfs-$KernelVer.img bs=1M count=20
 %{__cp} $RPM_BUILD_ROOT/boot/vmlinuz-$KernelVer $RPM_BUILD_ROOT/lib/modules/$KernelVer/vmlinuz
 
 # Override mod-fw because we don't want it to install any firmware.
-# We'll get it from the linux-firmware package and we don't want conflicts. # @TODO: maybe INSTALL_MOD_STRIP=1 so kernel itself strips modules, not redhat.
-%{__make} ARCH=%{_target_cpu} INSTALL_MOD_PATH=$RPM_BUILD_ROOT KERNELRELEASE=$KernelVer modules_install mod-fw=
+# We'll get it from the linux-firmware package and we don't want conflicts.
+%{__make} ARCH=%{_target_cpu} INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=$RPM_BUILD_ROOT KERNELRELEASE=$KernelVer modules_install mod-fw=
 
 %if %{with_vdso_install}
-%{__make} ARCH=%{_target_cpu} INSTALL_MOD_PATH=$RPM_BUILD_ROOT KERNELRELEASE=$KernelVer vdso_install
+%{__make} ARCH=%{_target_cpu} INSTALL_MOD_STRIP=1 INSTALL_MOD_PATH=$RPM_BUILD_ROOT KERNELRELEASE=$KernelVer vdso_install
 %if 0
 %{_bindir}/find $RPM_BUILD_ROOT/lib/modules/$KernelVer/vdso -name 'vdso*.so' -type f | \
     %{_bindir}/xargs --no-run-if-empty %{__strip}
