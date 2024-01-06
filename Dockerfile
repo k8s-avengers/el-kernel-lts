@@ -99,7 +99,7 @@ RUN rpmbuild -bs ${KERNEL_SPEC_FILE}
 
 # Actually build the binary RPMs
 # Consider that /root/rpmbuild/BUILD is 25GB+ after the build, so exporting it to layer would take a while and will fill your host's disk. Remove it.
-RUN time rpmbuild -bb ${KERNEL_SPEC_FILE} && rm -rf /root/rpmbuild/BUILD
+RUN time rpmbuild -vv -bb ${KERNEL_SPEC_FILE} && rm -rf /root/rpmbuild/BUILD
 
 RUN du -h -d 1 -x /root/rpmbuild
 

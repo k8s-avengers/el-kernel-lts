@@ -432,7 +432,7 @@ pushd linux-%{KVERREL} > /dev/null
 %{__make} ARCH=%{_target_cpu} olddefconfig
 
 echo "Listing most relevant options in .config after olddefconfig:" >&2
-cat .config | grep -e "GCC" -e "PAHOLE" -e "DWARF" -e "BTF" -e "BTRFS" -e "XXHASH" -e "ZSTD" >&2
+cat .config | grep -e "GCC" -e "PAHOLE" -e "DWARF" -e "BTF" -e "BTRFS" -e "XXHASH" -e "ZSTD" -e "DEBUG" >&2
 echo "Done listing most relevant options in .config after olddefconfig." >&2
 
 %{__make} ARCH=%{_target_cpu} %{?_smp_mflags} bzImage
