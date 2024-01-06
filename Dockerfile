@@ -7,11 +7,15 @@ ARG KERNEL_MINOR=1
 ARG KERNEL_POINT_RELEASE=70
 ARG KERNEL_PKG="kernel-lts"
 
-ARG KERNEL_RPM_VERSION=1
+ARG KERNEL_RPM_VERSION=666
 ARG PAHOLE_VERSION="v1.25"
 
 ARG KERNEL_VERSION="${KERNEL_MAJOR}.${KERNEL_MINOR}"
 ARG KERNEL_VERSION_FULL="${KERNEL_VERSION}.${KERNEL_POINT_RELEASE}"
+
+ARG KERNEL_EXTRAVERSION="${KERNEL_RPM_VERSION}.el${EL_MAJOR_VERSION}"
+
+
 ARG KERNEL_VERSION_FULL_RPM="${KERNEL_VERSION_FULL}-${KERNEL_RPM_VERSION}.el${EL_MAJOR_VERSION}"
 
 # Used for PX module rpm building
@@ -26,11 +30,11 @@ FROM rockylinux:${EL_VERSION} AS basebuilder
 # Common deps across all kernels; try to have as much as possible here so cache is reused
 # Developer tools for kernel building, from baseos; "yum-utils" for "yum-builddep"; "pciutils-libs" needed to install headers/devel later; cmake for building pahole
 RUN dnf -y groupinstall 'Development Tools'
-RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils pciutils-libs cmake
+RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils pciutils-libs cmake bc rsync
 RUN dnf -y install gcc-toolset-12 # 12.2.1-7 at the time of writing
 
 # Use gcc-12 toolchain as default
-SHELL ["/usr/bin/scl", "enable", "gcc-toolset-12", "--", "bash", "-c"]
+SHELL ["/usr/bin/scl", "enable", "gcc-toolset-12", "--", "bash", "-xe", "-c"]
 
 RUN gcc --version
 
@@ -63,35 +67,58 @@ ARG KERNEL_MINOR
 ARG KERNEL_PKG
 ARG KERNEL_VERSION
 ARG KERNEL_VERSION_FULL
+ARG KERNEL_EXTRAVERSION
 
 # Stage specific args
 ARG KERNEL_STUFF_DIR="${KERNEL_PKG}-${KERNEL_VERSION}"
 
 WORKDIR /build
 
-# Get the kernel tree via Docker
-ADD https://www.kernel.org/pub/linux/kernel/v${KERNEL_MAJOR}.x/linux-${KERNEL_VERSION_FULL}.tar.xz /build/
-RUN tar -xf /build/linux-${KERNEL_VERSION_FULL}.tar.xz -C /build/
-RUN ls -la /build/
-RUN exit 1
+# Download, extract, and rename the kernel source, all in one go, for docker layer slimness
+RUN wget --progress=dot:giga -O linux-${KERNEL_VERSION_FULL}.tar.xz https://www.kernel.org/pub/linux/kernel/v${KERNEL_MAJOR}.x/linux-${KERNEL_VERSION_FULL}.tar.xz && \
+      tar -xf linux-${KERNEL_VERSION_FULL}.tar.xz  && \
+      ls -la /build/ && \
+      mv -v /build/linux-${KERNEL_VERSION_FULL} /build/linux && \
+      rm -f linux-${KERNEL_VERSION_FULL}.tar.xz
+
 
 # Add configs/patches/etc; for now only config
 ADD ${KERNEL_STUFF_DIR} /build/stuff
+
+
+WORKDIR /build/linux
 
 # check again what gcc version is being used
 RUN gcc --version
 
 # Copy the config to the kernel tree
-RUN cp /build/stuff/config /build/linux-${KERNEL_VERSION_FULL}/.config
+RUN cp -v /build/stuff/defconfig-6.1-x86_64 .config
 
-# prepares the SRPM, which checks that all sources are indeed in place
-RUN rpmbuild -bs ${KERNEL_SPEC_FILE}
+# Expand the config, with defaults for new options
+RUN make olddefconfig
 
-# Actually build the binary RPMs
-# Consider that /root/rpmbuild/BUILD is 25GB+ after the build, so exporting it to layer would take a while and will fill your host's disk. Remove it.
-RUN time rpmbuild -vv -bb ${KERNEL_SPEC_FILE} && rm -rf /root/rpmbuild/BUILD
+# Patch the EXTRAVERSION, this is included in the kernel itself
+RUN sed -i 's/^EXTRAVERSION.*/EXTRAVERSION = -${KERNEL_EXTRAVERSION}/' Makefile
+RUN cat Makefile | grep EXTRAVERSION
+
+# Patch the rpm base package Name: in mkspec; so instead of "kernel" we get "kernel-lts-61y"
+#RUN sed -i 's/Name: kernel/Name: kernel-lts-${KERNEL_MAJOR}${KERNEL_MINOR}y/' scripts/package/mkspec
+
+# Show some options that are critical for this
+RUN cat .config | grep -e "EXTRAVERSION" -e "GCC" -e "PAHOLE" -e "DWARF" -e "BTF" -e "BTRFS" -e "XXHASH" -e "ZSTD" -e "DEBUG" >&2
+RUN make kernelrelease
+RUN make kernelversion
+
+## Build the kernel (this does NOT give out a -devel package, which is what we want)
+#RUN make -j$(nproc) bzImage
+#RUN make -j$(nproc) modules
+#RUN make -j$(nproc) binrpm-pkg
+
+# rpm-pkg does CLEAN so fucks up everything, either do it once or don't. binrpm-pkg packages a prebuilt thingy
+RUN make -j$(($(nproc --all)*2)) rpm-pkg
 
 RUN du -h -d 1 -x /root/rpmbuild
+RUN tree /root/rpmbuild
 
 # PX Module kernelbuilder
 FROM basebuilder as pxbuilder
@@ -102,9 +129,7 @@ ARG PX_FUSE_REPO
 ARG PX_FUSE_BRANCH
 
 WORKDIR /temprpm
-COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel-*-headers-*.rpm /temprpm/
-COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel-*-devel-*.rpm /temprpm/
-COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel-*-tools-*.rpm /temprpm/
+COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel-headers-*.rpm /temprpm/
 RUN yum install -y /temprpm/kernel-*.rpm --allowerasing
 
 WORKDIR /src/
@@ -116,6 +141,11 @@ RUN gcc --version
 WORKDIR /src/px-fuse
 RUN git checkout ${PX_FUSE_BRANCH} # v3.0.4
 RUN autoreconf && ./configure # Needed to get a root Makefile
+
+RUN yum list installed | grep kernel-headers
+RUN ls -la /usr/src/kernels
+RUN dnf repoquery -l kernel-headers
+
 RUN make rpm KVERSION=${KVERSION}
 RUN ls -laht rpm/px/RPMS/x86_64/*.rpm
 RUN ls -laht rpm/px/SRPMS/*.rpm
