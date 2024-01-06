@@ -32,8 +32,14 @@ FROM rockylinux:${EL_VERSION} AS basebuilder
 # Developer tools for kernel building, from baseos; "yum-utils" for "yum-builddep"; "pciutils-libs" needed to install headers/devel later; cmake for pahole
 RUN dnf -y groupinstall 'Development Tools'
 RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils pciutils-libs cmake
-RUN dnf config-manager --set-enabled powertools
-RUN dnf -y install dwarves # for pahole (BTF stuff); powertools el8 carries 1.22, we will rebuild below, but need the package anyway to satisfy deps
+#RUN dnf config-manager --set-enabled powertools
+#RUN dnf -y install dwarves # for pahole (BTF stuff); powertools el8 carries 1.22, we will rebuild below, but need the package anyway to satisfy deps
+RUN dnf -y install gcc-toolset-12 # 12.2.1-7 at the time of writing
+
+# Use gcc-12 toolchain as default
+SHELL ["/usr/bin/scl", "enable", "gcc-toolset-12", "--", "bash", "-c"]
+
+RUN gcc --version
 
 # FROM resets ARGs, so we need to redeclare them here
 ARG PAHOLE_VERSION
@@ -85,6 +91,9 @@ ADD ${KERNEL_RPM_DIR}/SOURCES/* /root/rpmbuild/SOURCES/
 # download the sources mentioned in the spec (eg: the kernel tarball); ideally add them to basebuilder for better cache hit ratio
 RUN spectool -g -R ${KERNEL_SPEC_FILE}
 
+# check again what gcc version is being used
+RUN gcc --version
+
 # prepares the SRPM, which checks that all sources are indeed in place
 RUN rpmbuild -bs ${KERNEL_SPEC_FILE}
 
@@ -110,6 +119,9 @@ RUN yum install -y /temprpm/kernel-*.rpm --allowerasing
 
 WORKDIR /src/
 RUN git clone ${PX_FUSE_REPO} px-fuse # https://github.com/portworx/px-fuse.git
+
+# check again what gcc version is being used
+RUN gcc --version
 
 WORKDIR /src/px-fuse
 RUN git checkout ${PX_FUSE_BRANCH} # v3.0.4

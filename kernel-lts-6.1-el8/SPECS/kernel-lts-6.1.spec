@@ -11,6 +11,7 @@
 
 # Define the version of the Linux Kernel Archive tarball.
 %define LKAver 6.1.70
+%define LKAmajor_minor 6.1
 
 # Otherwise we get 'error: Installed (but unpackaged) file(s) found:' for '/usr/lib64/traceevent/plugins/plugin_cfg80211.so' and others.
 %define _unpackaged_files_terminate_build 0
@@ -93,7 +94,7 @@ Provides: kernel = %{version}-%{release}
 Provides: installonlypkg(kernel)
 Requires: %{name}-core-uname-r = %{KVERREL}
 Requires: %{name}-modules-uname-r = %{KVERREL}
-BuildRequires: bash bc binutils bison bzip2 diffutils dwarves elfutils-devel
+BuildRequires: bash bc binutils bison bzip2 diffutils elfutils-devel
 BuildRequires: findutils flex gawk gcc git gzip hmaccalc hostname kmod m4
 BuildRequires: make net-tools openssl openssl-devel patch perl-Carp
 BuildRequires: perl-devel perl-generators perl-interpreter python3-devel
@@ -116,7 +117,7 @@ BuildConflicts: rhbuildsys(DiskFree) < 500Mb
 
 # Sources.
 Source0: https://www.kernel.org/pub/linux/kernel/v6.x/linux-%{LKAver}.tar.xz
-Source1: config-%{version}-x86_64
+Source1: defconfig-%{LKAmajor_minor}-x86_64
 Source2: cpupower.service
 Source3: cpupower.config
 Source4: mod-extra.sh
@@ -397,13 +398,7 @@ pushd linux-%{KVERREL} > /dev/null
 %{__sed} -i "s/^EXTRAVERSION.*/EXTRAVERSION = -%{release}.%{_target_cpu}/" Makefile
 
 %ifarch x86_64
-%{__cp} config-%{version}-%{_target_cpu} .config
-%{__make} ARCH=%{_target_cpu} listnewconfig | %{__grep} -E '^CONFIG_' > newoptions-el8-%{_target_cpu}.txt || true
-if [ -s newoptions-el8-%{_target_cpu}.txt ]; then
-    %{__cat} newoptions-el8-%{_target_cpu}.txt
-    exit 1
-fi
-%{__rm} -f newoptions-el8-%{_target_cpu}.txt
+%{__cp} defconfig-%{LKAmajor_minor}-%{_target_cpu} .config
 %endif
 
 %{__mv} COPYING COPYING-%{version}
@@ -430,9 +425,13 @@ pushd linux-%{KVERREL} > /dev/null
 
 %ifarch x86_64
 %if %{with_default}
-%{__cp} config-%{version}-%{_target_cpu} .config
+%{__cp} defconfig-%{LKAmajor_minor}-%{_target_cpu} .config
 
-%{__make} ARCH=%{_target_cpu} oldconfig
+%{__make} ARCH=%{_target_cpu} olddefconfig
+
+echo "Listing most relevant options in .config after olddefconfig:" >&2
+cat .config | grep -e "GCC" -e "PAHOLE" -e "DWARF" -e "BTF" -e "BTRFS" -e "XXHASH" -e "ZSTD" >&2
+echo "Done listing most relevant options in .config after olddefconfig." >&2
 
 %{__make} ARCH=%{_target_cpu} %{?_smp_mflags} bzImage
 
