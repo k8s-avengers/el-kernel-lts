@@ -529,6 +529,7 @@ KernelVer=%{version}-%{release}.%{_target_cpu}
 # This macro is to allow the (conditional)
 # compression of the kernel-lts module files.
 #
+# @TODO: this is extremely slow. use gnu parallel instead?
 %define __spec_install_post \
     %{__arch_install_post} \
     %{__os_install_post} \
