@@ -74,7 +74,7 @@ case "${1:-"build"}" in
 		docker build -t "${image_builder}" --target kernelconfigured "${build_args[@]}" .
 
 		# build final stage & push
-		docker build -t "${image_versioned}" --target kernelconfigured "${build_args[@]}" .
+		docker build -t "${image_versioned}" "${build_args[@]}" .
 		docker push "${image_versioned}"
 
 		# tag & push the latest
@@ -83,9 +83,6 @@ case "${1:-"build"}" in
 
 		# push the builder
 		docker push "${image_builder}"
-
-		echo "Not implemented: calc OCI_BASE and tag, check if on registry already, build if not, push, push latest tag as well" >&2
-		exit 2
 		;;
 
 esac
