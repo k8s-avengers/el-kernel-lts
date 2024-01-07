@@ -145,17 +145,10 @@ ARG KVERSION_PX="${KERNEL_VERSION_FULL}-${KERNEL_EXTRAVERSION}"
 
 RUN echo "KVERSION_PX=${KVERSION_PX}" >&2
 
-# with fixes on top of https://github.com/portworx/px-fuse.git # v3.0.4
-ARG PX_FUSE_REPO="https://github.com/rpardini/px-fuse-mainline.git"
-ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes-btf"
-
 # Install both the devel (for headers/tools) and the kernel image proper (for vmlinuz BTF, needed to built this module with BTF info)
 WORKDIR /temprpm
 COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel*.rpm /temprpm/
 RUN yum install -y /temprpm/kernel*.rpm --allowerasing
-
-WORKDIR /src/
-RUN git clone ${PX_FUSE_REPO} px-fuse
 
 # check again what gcc version is being used; show headers installed etc
 RUN gcc --version >&2
@@ -169,6 +162,13 @@ RUN chmod +x /usr/bin/extract-vmlinux
 RUN cp -v /boot/vmlinuz-* /usr/src/kernels/${KVERSION_PX}/vmlinuz
 RUN file  /usr/src/kernels/${KVERSION_PX}/vmlinuz
 RUN /usr/bin/extract-vmlinux /usr/src/kernels/${KVERSION_PX}/vmlinuz > /usr/src/kernels/${KVERSION_PX}/vmlinux
+
+WORKDIR /src/
+# with fixes on top of https://github.com/portworx/px-fuse.git # v3.0.4
+ARG PX_FUSE_REPO="https://github.com/rpardini/px-fuse-mainline.git"
+ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes-btf"
+
+RUN git clone ${PX_FUSE_REPO} px-fuse
 
 WORKDIR /src/px-fuse
 RUN git checkout ${PX_FUSE_BRANCH}
