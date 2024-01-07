@@ -37,8 +37,6 @@ declare -a build_args=(
 	"--build-arg" "INPUT_DEFCONFIG=${INPUT_DEFCONFIG}"
 )
 
-set -x
-
 case "${1:-"build"}" in
 	config)
 		# bail if not interactive (stdin is a terminal)

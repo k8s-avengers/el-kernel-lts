@@ -4,7 +4,7 @@ ARG EL_IMAGE="rockylinux"
 ARG EL_VERSION=${EL_MAJOR_VERSION}
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-# Common shared basebuilder; definitely build this with --pull so it doesn't bitrot
+# Common shared basebuilder; definitely build this with --pull on CI, so it doesn't bitrot
 FROM ${EL_IMAGE}:${EL_VERSION} AS basebuilder
 
 # Common deps across all kernels; try to have as much as possible here so cache is reused
@@ -46,6 +46,7 @@ RUN echo Sign with: $(realpath /keys/kernel_key.pem) >&2
 FROM basebuilder as kernelreadytobuild
 
 # Kernel target; "primary keys" together with EL_MAJOR_VERSION above.
+ARG EL_MAJOR_VERSION
 ARG KERNEL_MAJOR=6
 ARG KERNEL_MINOR=1
 ARG FLAVOR="kvm"
@@ -128,6 +129,8 @@ RUN tree /root/rpmbuild/KEYS >&2
 FROM basebuilder as pxbuilder
 
 # Used for PX module rpm building; KVERSION_PX is the dir under /usr/src/kernels/
+ARG KERNEL_VERSION_FULL
+ARG KERNEL_EXTRAVERSION
 ARG KVERSION_PX="${KERNEL_VERSION_FULL}-${KERNEL_EXTRAVERSION}"
 
 # with fixes on top of https://github.com/portworx/px-fuse.git # v3.0.4
@@ -158,7 +161,7 @@ RUN mkdir /out-px
 RUN cp -rvp rpm/px/RPMS /out-px/
 RUN cp -rvp rpm/px/SRPMS /out-px/
 
-# Copy the RPMs to a new Alpine image for easy droppage of the .rpm's to host/etc
+# Copy the RPMs to a new Alpine image for easy droppage of the .rpm's to host/etc; otherwise could be from SCRATCH
 FROM alpine:latest
 
 WORKDIR /out
