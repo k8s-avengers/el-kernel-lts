@@ -47,6 +47,9 @@ case "${1:-"build"}" in
 
 	build)
 		docker build -t rpardini/el-kernel-lts:rpms "${build_args[@]}" .
+		
+		declare outdir="out-${KERNEL_MAJOR}.${KERNEL_MINOR}-${FLAVOR}-el${EL_MAJOR_VERSION}"
+		docker run -it -v "$(pwd)/${outdir}:/host" rpardini/el-kernel-lts:rpms sh -c "cp -rpv /out/* /host/"
 		;;
 
 	buildandpush)
