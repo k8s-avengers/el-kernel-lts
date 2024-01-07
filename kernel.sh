@@ -9,7 +9,10 @@ declare KERNEL_RPM_VERSION="${KERNEL_RPM_VERSION:-"666"}"
 declare FLAVOR="${FLAVOR:-"${2:-"kvm"}"}" # maybe default to generic? kvm is much faster to build
 
 if [[ ! -f kernel-releases.json ]]; then
+	echo "Getting kernel-releases.json from kernel.org" >&2
 	curl "https://www.kernel.org/releases.json" > kernel-releases.json
+else
+	echo "Using disk cached kernel-releases.json" >&2
 fi
 
 # shellcheck disable=SC2002 # cat is not useless. my cat's stylistic
@@ -37,6 +40,8 @@ declare -a build_args=(
 	"--build-arg" "INPUT_DEFCONFIG=${INPUT_DEFCONFIG}"
 )
 
+echo "-- Args: ${build_args[*]}" >&2
+
 case "${1:-"build"}" in
 	config)
 		# bail if not interactive (stdin is a terminal)
@@ -47,12 +52,38 @@ case "${1:-"build"}" in
 
 	build)
 		docker build -t rpardini/el-kernel-lts:rpms "${build_args[@]}" .
-		
+
 		declare outdir="out-${KERNEL_MAJOR}.${KERNEL_MINOR}-${FLAVOR}-el${EL_MAJOR_VERSION}"
 		docker run -it -v "$(pwd)/${outdir}:/host" rpardini/el-kernel-lts:rpms sh -c "cp -rpv /out/* /host/"
 		;;
 
-	buildandpush)
+	checkbuildandpush)
+		set -x
+		echo "BASE_OCI_REF: ${BASE_OCI_REF}" >&2 # Should end with a slash, or might have prefix, don't assume
+		docker pull quay.io/skopeo/stable:latest
+
+		declare image_versioned="${BASE_OCI_REF}el-kernel-lts:el${EL_MAJOR_VERSION}-${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.${KERNEL_POINT_RELEASE}-${KERNEL_RPM_VERSION}"
+		declare image_latest="${BASE_OCI_REF}el-kernel-lts:el${EL_MAJOR_VERSION}-${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.y-latest"
+		declare image_builder="${BASE_OCI_REF}el-kernel-lts:el${EL_MAJOR_VERSION}-${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.${KERNEL_POINT_RELEASE}-builder"
+
+		echo "image_versioned: '${image_versioned}'" >&2
+		echo "image_latest: '${image_latest}'" >&2
+		echo "image_builder: '${image_builder}'" >&2
+
+		# build & tag up to the kernelconfigured stage as the image_builder
+		docker build -t "${image_builder}" --target kernelconfigured "${build_args[@]}" .
+
+		# build final stage & push
+		docker build -t "${image_versioned}" --target kernelconfigured "${build_args[@]}" .
+		docker push "${image_versioned}"
+
+		# tag & push the latest
+		docker tag "${image_versioned}" "${image_latest}"
+		docker push "${image_latest}"
+
+		# push the builder
+		docker push "${image_builder}"
+
 		echo "Not implemented: calc OCI_BASE and tag, check if on registry already, build if not, push, push latest tag as well" >&2
 		exit 2
 		;;
