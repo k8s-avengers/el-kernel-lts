@@ -3,6 +3,21 @@ ARG EL_MAJOR_VERSION=8
 ARG EL_IMAGE="rockylinux"
 ARG EL_VERSION=${EL_MAJOR_VERSION}
 
+# Kernel target; "primary keys" together with EL_MAJOR_VERSION above.
+ARG KERNEL_MAJOR=6
+ARG KERNEL_MINOR=1
+ARG FLAVOR="kvm"
+ARG KERNEL_RPM_VERSION=666
+ARG KERNEL_POINT_RELEASE=69
+
+# Derived args, still overridable, but override at your own risk ;-)
+ARG INPUT_DEFCONFIG="defconfigs/${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}-x86_64"
+ARG KERNEL_PKG="kernel_lts_${FLAVOR}_${KERNEL_MAJOR}${KERNEL_MINOR}y"
+
+ARG KERNEL_VERSION="${KERNEL_MAJOR}.${KERNEL_MINOR}"
+ARG KERNEL_VERSION_FULL="${KERNEL_VERSION}.${KERNEL_POINT_RELEASE}"
+ARG KERNEL_EXTRAVERSION="${KERNEL_RPM_VERSION}.el${EL_MAJOR_VERSION}"
+
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Common shared basebuilder; definitely build this with --pull on CI, so it doesn't bitrot
 FROM ${EL_IMAGE}:${EL_VERSION} AS basebuilder
@@ -45,23 +60,19 @@ RUN echo Sign with: $(realpath /keys/kernel_key.pem) >&2
 # For kernel building...
 FROM basebuilder as kernelreadytobuild
 
-# Kernel target; "primary keys" together with EL_MAJOR_VERSION above.
-ARG EL_MAJOR_VERSION
-ARG KERNEL_MAJOR=6
-ARG KERNEL_MINOR=1
-ARG FLAVOR="kvm"
-ARG KERNEL_RPM_VERSION=666
-ARG KERNEL_POINT_RELEASE=69
-
-# Derived args, still overridable, but override at your own risk ;-)
-ARG INPUT_DEFCONFIG="defconfigs/${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}-x86_64"
-ARG KERNEL_PKG="kernel_lts_${FLAVOR}_${KERNEL_MAJOR}${KERNEL_MINOR}y"
-
-ARG KERNEL_VERSION="${KERNEL_MAJOR}.${KERNEL_MINOR}"
-ARG KERNEL_VERSION_FULL="${KERNEL_VERSION}.${KERNEL_POINT_RELEASE}"
-ARG KERNEL_EXTRAVERSION="${KERNEL_RPM_VERSION}.el${EL_MAJOR_VERSION}"
+# ARGs used from global scope in this stage
+ARG KERNEL_MAJOR
+ARG INPUT_DEFCONFIG
+ARG KERNEL_PKG
+ARG KERNEL_VERSION_FULL
+ARG KERNEL_EXTRAVERSION
 
 WORKDIR /build
+
+RUN echo "KERNEL_PKG=${KERNEL_PKG}" >&2
+RUN echo "KERNEL_VERSION_FULL=${KERNEL_VERSION_FULL}" >&2
+RUN echo 'KERNEL_PKG=${KERNEL_PKG}' >&2
+RUN echo 'KERNEL_VERSION_FULL=${KERNEL_VERSION_FULL}' >&2
 
 # Download, extract, and rename the kernel source, all in one go, for docker layer slimness
 RUN wget --progress=dot:giga -O linux-${KERNEL_VERSION_FULL}.tar.xz https://www.kernel.org/pub/linux/kernel/v${KERNEL_MAJOR}.x/linux-${KERNEL_VERSION_FULL}.tar.xz && \
@@ -123,7 +134,6 @@ RUN make -j$(nproc --all) rpm-pkg  && \
 RUN du -h -d 1 -x /root/rpmbuild >&2
 RUN tree /root/rpmbuild/RPMS >&2
 RUN tree /root/rpmbuild/SRPMS >&2
-RUN tree /root/rpmbuild/KEYS >&2
 
 # PX Module kernelbuilder
 FROM basebuilder as pxbuilder
@@ -133,21 +143,23 @@ ARG KERNEL_VERSION_FULL
 ARG KERNEL_EXTRAVERSION
 ARG KVERSION_PX="${KERNEL_VERSION_FULL}-${KERNEL_EXTRAVERSION}"
 
+RUN echo "KVERSION_PX=${KVERSION_PX}" >&2
+
 # with fixes on top of https://github.com/portworx/px-fuse.git # v3.0.4
 ARG PX_FUSE_REPO="https://github.com/rpardini/px-fuse-mainline.git"
 ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes"
 
 WORKDIR /temprpm
-COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel*-devel-*.rpm /temprpm/
-RUN yum install -y /temprpm/kernel-*.rpm --allowerasing
+COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel*devel-*.rpm /temprpm/
+RUN yum install -y /temprpm/kernel*.rpm --allowerasing
 
 WORKDIR /src/
 RUN git clone ${PX_FUSE_REPO} px-fuse
 
 # check again what gcc version is being used; show headers installed etc
 RUN gcc --version >&2
-RUN yum list installed | grep kernel-devel >&2
 RUN ls -la /usr/src/kernels >&2
+RUN ls -la /usr/src/kernels/${KVERSION_PX} >&2
 
 WORKDIR /src/px-fuse
 RUN git checkout ${PX_FUSE_BRANCH}
