@@ -1,0 +1,116 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Saeed Mirzamohammadi <saeed.mirzamohammadi@oracle.com>
+Date: Sun, 7 Jan 2024 15:22:33 +0100
+Subject: kernel/crash_core: add crashkernel=auto for vmcore creation
+
+- Rebased for 6.1.y by rpardini
+Co-authored-by: Ricardo Pardini <ricardo@pardini.net>
+Signed-off-by: Ricardo Pardini <ricardo@pardini.net>
+
+This adds crashkernel=auto feature to configure reserved memory for vmcore
+creation.  CONFIG_CRASH_AUTO_STR is defined to be set for different kernel
+distributions and different archs based on their needs.
+
+Link: https://lkml.kernel.org/r/20210223174153.72802-1-saeed.mirzamohammadi@oracle.com
+Signed-off-by: Saeed Mirzamohammadi <saeed.mirzamohammadi@oracle.com>
+Signed-off-by: John Donnelly <john.p.donnelly@oracle.com>
+Tested-by: John Donnelly <john.p.donnelly@oracle.com>
+Tested-by: Dave Young <dyoung@redhat.com>
+Signed-off-by: Andrew Morton <akpm@linux-foundation.org>
+---
+ Documentation/admin-guide/kdump/kdump.rst       |  3 +-
+ Documentation/admin-guide/kernel-parameters.txt |  6 +++
+ arch/Kconfig                                    | 20 ++++++++++
+ kernel/crash_core.c                             |  7 ++++
+ 4 files changed, 35 insertions(+), 1 deletion(-)
+
+diff --git a/Documentation/admin-guide/kdump/kdump.rst b/Documentation/admin-guide/kdump/kdump.rst
+index a748e7eb4429..37b0b0972dcf 100644
+--- a/Documentation/admin-guide/kdump/kdump.rst
++++ b/Documentation/admin-guide/kdump/kdump.rst
+@@ -102,7 +102,8 @@ http://horms.net/projects/kexec/
+ 
+ 	make install
+ 
+-
++Or you can use crashkernel=auto to choose the crash kernel memory size
++based on the recommended configuration set for each arch.
+ Build the system and dump-capture kernels
+ -----------------------------------------
+ There are two possible methods of using Kdump.
+diff --git a/Documentation/admin-guide/kernel-parameters.txt b/Documentation/admin-guide/kernel-parameters.txt
+index 31af352b4762..a35d134ffa7b 100644
+--- a/Documentation/admin-guide/kernel-parameters.txt
++++ b/Documentation/admin-guide/kernel-parameters.txt
+@@ -844,6 +844,12 @@
+ 			a memory unit (amount[KMG]). See also
+ 			Documentation/admin-guide/kdump/kdump.rst for an example.
+ 
++	crashkernel=auto
++			[KNL] This parameter will set the reserved memory for
++			the crash kernel based on the value of the CRASH_AUTO_STR
++			that is the best effort estimation for each arch. See also
++			arch/Kconfig for further details.
++
+ 	crashkernel=size[KMG],high
+ 			[KNL, X86-64, ARM64] range could be above 4G. Allow kernel
+ 			to allocate physical memory region from top, so could
+diff --git a/arch/Kconfig b/arch/Kconfig
+index b60d271bf76a..b609238330be 100644
+--- a/arch/Kconfig
++++ b/arch/Kconfig
+@@ -14,6 +14,26 @@ menu "General architecture-dependent options"
+ config CRASH_CORE
+ 	bool
+ 
++config CRASH_AUTO_STR
++	string "Memory reserved for crash kernel"
++	depends on CRASH_CORE
++	default "1G-64G:128M,64G-1T:256M,1T-:512M"
++	help
++	  This configures the reserved memory dependent
++	  on the value of System RAM. The syntax is:
++	  crashkernel=<range1>:<size1>[,<range2>:<size2>,...][@offset]
++	              range=start-[end]
++
++	  For example:
++	      crashkernel=512M-2G:64M,2G-:128M
++
++	  This would mean:
++
++	      1) if the RAM is smaller than 512M, then don't reserve anything
++	         (this is the "rescue" case)
++	      2) if the RAM size is between 512M and 2G (exclusive), then reserve 64M
++	      3) if the RAM size is larger than 2G, then reserve 128M
++
+ config KEXEC_CORE
+ 	select CRASH_CORE
+ 	bool
+diff --git a/kernel/crash_core.c b/kernel/crash_core.c
+index a0eb4d5cf557..e951d79cb9ce 100644
+--- a/kernel/crash_core.c
++++ b/kernel/crash_core.c
+@@ -9,6 +9,7 @@
+ #include <linux/init.h>
+ #include <linux/utsname.h>
+ #include <linux/vmalloc.h>
++#include <linux/kexec.h>
+ #include <linux/sizes.h>
+ 
+ #include <asm/page.h>
+@@ -260,6 +261,12 @@ static int __init __parse_crashkernel(char *cmdline,
+ 	if (suffix)
+ 		return parse_crashkernel_suffix(ck_cmdline, crash_size,
+ 				suffix);
++#ifdef CONFIG_CRASH_AUTO_STR
++	if (strncmp(ck_cmdline, "auto", 4) == 0) {
++		ck_cmdline = CONFIG_CRASH_AUTO_STR;
++		pr_info("Using crashkernel=auto, the size chosen is a best effort estimation.\n");
++	}
++#endif
+ 	/*
+ 	 * if the commandline contains a ':', then that's the extended
+ 	 * syntax -- if not, it must be the classic syntax
+-- 
+el-kernel-lts
+

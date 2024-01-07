@@ -57,21 +57,16 @@ RUN openssl req -new -nodes -utf8 -sha256 -days 36500 -batch -x509 -config x509.
 RUN echo Sign with: $(realpath /keys/kernel_key.pem) >&2
 
 
-# For kernel building...
-FROM basebuilder as kernelreadytobuild
+# Layer with the unpacked kernel source
+FROM basebuilder as kernelsourceunpacked
 
 # ARGs used from global scope in this stage
 ARG KERNEL_MAJOR
-ARG INPUT_DEFCONFIG
-ARG KERNEL_PKG
 ARG KERNEL_VERSION_FULL
-ARG KERNEL_EXTRAVERSION
 
 WORKDIR /build
 
-RUN echo "KERNEL_PKG=${KERNEL_PKG}" >&2
-RUN echo "KERNEL_VERSION_FULL=${KERNEL_VERSION_FULL}" >&2
-RUN echo 'KERNEL_PKG=${KERNEL_PKG}' >&2
+RUN echo 'KERNEL_MAJOR=${KERNEL_MAJOR}' >&2
 RUN echo 'KERNEL_VERSION_FULL=${KERNEL_VERSION_FULL}' >&2
 
 # Download, extract, and rename the kernel source, all in one go, for docker layer slimness
@@ -82,6 +77,18 @@ RUN wget --progress=dot:giga -O linux-${KERNEL_VERSION_FULL}.tar.xz https://www.
       rm -f linux-${KERNEL_VERSION_FULL}.tar.xz
 
 WORKDIR /build/linux
+
+# Layer with the config prepared
+FROM kernelsourceunpacked as kernelreadytobuild
+
+# ARGs used from global scope in this stage
+ARG INPUT_DEFCONFIG
+ARG KERNEL_PKG
+ARG KERNEL_EXTRAVERSION
+
+RUN echo "KERNEL_PKG=${KERNEL_PKG}" >&2
+RUN echo 'INPUT_DEFCONFIG=${INPUT_DEFCONFIG}' >&2
+RUN echo 'KERNEL_EXTRAVERSION=${KERNEL_EXTRAVERSION}' >&2
 
 # Copy the config to the kernel tree
 ADD ${INPUT_DEFCONFIG} .config
@@ -122,8 +129,27 @@ RUN ( echo "KERNELRELEASE"; make kernelrelease; ) >&2
 # Set some envs for the kernel build
 ENV KBUILD_BUILD_USER=${KERNEL_PKG} KBUILD_BUILD_HOST=kernel-lts KGZIP=pigz 
 
+
+# Separate layer for patching
+FROM kernelreadytobuild as kernelpatchedandreadytobuild
+
+ARG KERNEL_MAJOR
+ARG KERNEL_MINOR
+
+### Patch the kernel source itself, from patch files in assets/patches/
+WORKDIR /build/patches
+# ADD/COPY, but don't fail if source does not exist? @TODO this whole layer will be skipped
+ADD assets/patches/${KERNEL_MAJOR}.${KERNEL_MINOR}/*.patch .
+ADD assets/apply_patches.sh /build/patches/apply_patches.sh
+RUN chmod +x /build/patches/apply_patches.sh # @TODO maybe not needed if we mark the source +x
+
+WORKDIR /build/linux
+RUN bash /build/patches/apply_patches.sh
+
+
 # Separate layer, so the above can be used for interactive building
-FROM kernelreadytobuild as kernelbuilder
+# FROM kernelreadytobuild as kernelbuilder # @TODO use arg for this, so patching is skipped if launcher does not detect a patch dir for the kernel major.minor in place
+FROM kernelpatchedandreadytobuild as kernelbuilder
 # check again what gcc version is being used
 RUN gcc --version >&2
 
