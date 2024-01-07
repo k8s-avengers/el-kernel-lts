@@ -52,7 +52,7 @@ RUN git clone https://git.kernel.org/pub/scm/devel/pahole/pahole.git && \
 
 # Prepare signing keys in this common layer; both kernel and px module will use it.
 WORKDIR /keys
-ADD keys/x509.genkey .
+ADD assets/x509.genkey .
 RUN openssl req -new -nodes -utf8 -sha256 -days 36500 -batch -x509 -config x509.genkey -outform PEM -out kernel_key.pem -keyout kernel_key.pem
 RUN echo Sign with: $(realpath /keys/kernel_key.pem) >&2
 
