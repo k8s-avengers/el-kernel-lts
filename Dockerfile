@@ -149,8 +149,9 @@ RUN echo "KVERSION_PX=${KVERSION_PX}" >&2
 ARG PX_FUSE_REPO="https://github.com/rpardini/px-fuse-mainline.git"
 ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes"
 
+# Install both the devel (for headers/tools) and the kernel image proper (for vmlinuz BTF, needed to built this module with BTF info)
 WORKDIR /temprpm
-COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel*devel-*.rpm /temprpm/
+COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel*.rpm /temprpm/
 RUN yum install -y /temprpm/kernel*.rpm --allowerasing
 
 WORKDIR /src/
@@ -161,11 +162,25 @@ RUN gcc --version >&2
 RUN ls -la /usr/src/kernels >&2
 RUN ls -la /usr/src/kernels/${KVERSION_PX} >&2
 
+# Copy 'vmlinuz' (from the kernel pkg, in /boot) in a place the build will find it. Decompress it using extract-vmlinuz (which somehow is not included in the devel package, so we've a copy in "assets").
+# This is needed to the px module gets correct BTF typeinfo.
+ADD assets/extract-vmlinux /usr/bin/extract-vmlinux
+RUN chmod +x /usr/bin/extract-vmlinux
+RUN cp -v /boot/vmlinuz-* /usr/src/kernels/${KVERSION_PX}/vmlinuz
+RUN file  /usr/src/kernels/${KVERSION_PX}/vmlinuz
+RUN /usr/bin/extract-vmlinux /usr/src/kernels/${KVERSION_PX}/vmlinuz > /usr/src/kernels/${KVERSION_PX}/vmlinux
+
 WORKDIR /src/px-fuse
 RUN git checkout ${PX_FUSE_BRANCH}
 RUN autoreconf && ./configure # Needed to get a root Makefile
 
 RUN make rpm KVERSION=${KVERSION_PX}
+
+# After the build, check the .ko built
+RUN file ./rpm/px/BUILD/px-src/px.ko >&2
+RUN modinfo ./rpm/px/BUILD/px-src/px.ko >&2
+
+
 RUN ls -laht rpm/px/RPMS/x86_64/*.rpm >&2
 RUN ls -laht rpm/px/SRPMS/*.rpm >&2
 
