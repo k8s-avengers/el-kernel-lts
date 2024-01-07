@@ -147,7 +147,7 @@ RUN echo "KVERSION_PX=${KVERSION_PX}" >&2
 
 # with fixes on top of https://github.com/portworx/px-fuse.git # v3.0.4
 ARG PX_FUSE_REPO="https://github.com/rpardini/px-fuse-mainline.git"
-ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes"
+ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes-btf"
 
 # Install both the devel (for headers/tools) and the kernel image proper (for vmlinuz BTF, needed to built this module with BTF info)
 WORKDIR /temprpm
