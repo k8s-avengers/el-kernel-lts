@@ -17,11 +17,20 @@ jobs:
       fail-fast: false # let other jobs try to complete if one fails
       matrix:
         include: # To build against a specific EL_MINOR_VERSION eg 7, use EL_VERSION to override "8.7"; otherwise uses latest 
-          - { id: "el8-6.1.y-kvm", env: { EL_MAJOR_VERSION: "8", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "kvm" } }
-          - { id: "el9-6.1.y-kvm", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "kvm" } }
+          #- { id: "el8-6.1.y-kvm", env: { EL_MAJOR_VERSION: "8", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "kvm" } }
+          #- { id: "el9-6.1.y-kvm", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "kvm" } }
           - { id: "el8-6.1.y-generic", env: { EL_MAJOR_VERSION: "8", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "generic" } }
     name: "${{ matrix.id }}"
     steps:
+      - name: cleanup GHA hosted runner
+        run: |
+          # Workaround to provide additional free space for building.
+          #   https://github.com/actions/virtual-environments/issues/2840
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
       - name: Checkout build repo
         uses: actions/checkout@v4
 
