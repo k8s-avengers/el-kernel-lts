@@ -78,8 +78,25 @@ RUN wget --progress=dot:giga -O linux-${KERNEL_VERSION_FULL}.tar.xz https://www.
 
 WORKDIR /build/linux
 
-# Layer with the config prepared
-FROM kernelsourceunpacked as kernelreadytobuild
+# Separate layer for patching
+FROM kernelsourceunpacked as kernelpatched
+
+ARG KERNEL_MAJOR
+ARG KERNEL_MINOR
+
+### Patch the kernel source itself, from patch files in assets/patches/
+WORKDIR /build/patches
+# ADD/COPY, but don't fail if source does not exist? @TODO this whole layer will be skipped
+ADD assets/patches/${KERNEL_MAJOR}.${KERNEL_MINOR}/*.patch .
+ADD assets/apply_patches.sh /build/patches/apply_patches.sh
+RUN chmod +x /build/patches/apply_patches.sh # @TODO maybe not needed if we mark the source +x
+
+WORKDIR /build/linux
+RUN bash /build/patches/apply_patches.sh
+
+
+# Layer with the config prepared, on top of patches
+FROM kernelpatched as kernelconfigured
 
 # ARGs used from global scope in this stage
 ARG INPUT_DEFCONFIG
@@ -123,33 +140,15 @@ RUN cat scripts/package/mkspec | grep -e "Name:" -e "description" -e "Source:" >
 RUN cat scripts/Makefile.package | grep "^KERNELPATH" >&2
 
 # Show some options that are critical for this
-RUN cat .config | grep -e "EXTRAVERSION" -e "GCC" -e "PAHOLE" -e "DWARF" -e "BTF" -e "BTRFS" -e "XXHASH" -e "DEBUG_INFO" -e "MODULE_SIG" | grep -v "\ is not set" | sort >&2
+RUN cat .config | grep -e "EXTRAVERSION" -e "GCC" -e "PAHOLE" -e "DWARF" -e "BTF" -e "BTRFS" -e "XXHASH" -e "DEBUG_INFO" -e "MODULE_SIG" -e "CRASH_CORE" | grep -v "\ is not set" | sort >&2
 RUN ( echo "KERNELRELEASE"; make kernelrelease; ) >&2
 
 # Set some envs for the kernel build
 ENV KBUILD_BUILD_USER=${KERNEL_PKG} KBUILD_BUILD_HOST=kernel-lts KGZIP=pigz 
 
 
-# Separate layer for patching
-FROM kernelreadytobuild as kernelpatchedandreadytobuild
-
-ARG KERNEL_MAJOR
-ARG KERNEL_MINOR
-
-### Patch the kernel source itself, from patch files in assets/patches/
-WORKDIR /build/patches
-# ADD/COPY, but don't fail if source does not exist? @TODO this whole layer will be skipped
-ADD assets/patches/${KERNEL_MAJOR}.${KERNEL_MINOR}/*.patch .
-ADD assets/apply_patches.sh /build/patches/apply_patches.sh
-RUN chmod +x /build/patches/apply_patches.sh # @TODO maybe not needed if we mark the source +x
-
-WORKDIR /build/linux
-RUN bash /build/patches/apply_patches.sh
-
-
 # Separate layer, so the above can be used for interactive building
-# FROM kernelreadytobuild as kernelbuilder # @TODO use arg for this, so patching is skipped if launcher does not detect a patch dir for the kernel major.minor in place
-FROM kernelpatchedandreadytobuild as kernelbuilder
+FROM kernelconfigured as kernelbuilder
 # check again what gcc version is being used
 RUN gcc --version >&2
 
