@@ -153,10 +153,11 @@ FROM kernelconfigured as kernelbuilder
 RUN gcc --version >&2
 
 # rpm-pkg does NOT operate on the tree, instead, in /root/rpmbuild; tree is built in /root/rpmbuild/BUILD and is huge. build & remove it immediately to save a huge layer export.
-RUN make -j$(nproc --all) rpm-pkg  && \
+RUN make -j$(nproc --all) rpm-pkg INSTALL_MOD_STRIP=1 && \
     rm -rf /root/rpmbuild/BUILD
 
 RUN du -h -d 1 -x /root/rpmbuild >&2
+RUN ls -lahR /root/rpmbuild/RPMS >&2
 RUN tree /root/rpmbuild/RPMS >&2
 RUN tree /root/rpmbuild/SRPMS >&2
 
