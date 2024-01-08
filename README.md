@@ -13,7 +13,7 @@ I need kernels for EL8 (RockyLinux) and EL9 that are
 - mainline LTS kernels, at least 5.10.y; 6.1.y or 6.6.y would be ideal
 - packaged as RPMs, with different names than the distro's
     - RPM name includes LTS branch version (eg 6.1.y is `kernel-lts-generic-61y`)
-    - `uname -r` is not insane; keep it simple eg `6.1.71-1000.el8`
+    - `uname -r` is not insane; keep it simple eg `6.1.71-generic-1000.el8`
 - fully eBPF BTF [CO-RE](https://nakryiko.com/posts/bpf-core-reference-guide/) enabled
     - built with a toolchain available in EL8: gcc12 with DWARF5
 - include working `-devel` packages that can be used to build out-of-tree modules
@@ -50,7 +50,8 @@ Using a Dockerfile with multiple stages:
     - a stage with patched kernel source
     - a stage with .`config`ured, patched, kernel (this is expoted as `-builder` for easy config/patch maintenance)
     - a stage with the built kernel RPMs/SRPM
-    - a stage for building out-of-tree modules
+    - a stage for building out-of-tree modules, complete with BTF vmlinux & devel headers installed
+    - a stage that builds an actual out-of-tree module using the above
 - a final, Alpine, stage to carry/publish the RPMs/SRPMs from both the kernel & out-of-tree stages
 - this is tagged with the complete version, eg ``
 - but also with the latest variant, `` when a new kernel is built

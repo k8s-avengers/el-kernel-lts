@@ -16,7 +16,9 @@ ARG KERNEL_PKG="kernel_lts_${FLAVOR}_${KERNEL_MAJOR}${KERNEL_MINOR}y"
 
 ARG KERNEL_VERSION="${KERNEL_MAJOR}.${KERNEL_MINOR}"
 ARG KERNEL_VERSION_FULL="${KERNEL_VERSION}.${KERNEL_POINT_RELEASE}"
-ARG KERNEL_EXTRAVERSION="${KERNEL_RPM_VERSION}.el${EL_MAJOR_VERSION}"
+ARG KERNEL_EXTRAVERSION="${KERNEL_RPM_VERSION}-${FLAVOR}.el${EL_MAJOR_VERSION}"
+# KVERSION is the dir under /usr/src/kernels/ when -devel package is installed
+ARG KVERSION="${KERNEL_VERSION_FULL}-${KERNEL_EXTRAVERSION}"
 
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # Common shared basebuilder; definitely build this with --pull on CI, so it doesn't bitrot
@@ -161,15 +163,13 @@ RUN ls -lahR /root/rpmbuild/RPMS >&2
 RUN tree /root/rpmbuild/RPMS >&2
 RUN tree /root/rpmbuild/SRPMS >&2
 
-# PX Module kernelbuilder
-FROM basebuilder as pxbuilder
+# Generic Out-of-Tree Module kernelbuilder
+FROM basebuilder as modulebuilder
 
-# Used for PX module rpm building; KVERSION_PX is the dir under /usr/src/kernels/
-ARG KERNEL_VERSION_FULL
-ARG KERNEL_EXTRAVERSION
-ARG KVERSION_PX="${KERNEL_VERSION_FULL}-${KERNEL_EXTRAVERSION}"
+# Used for module building; KVERSION is the dir under /usr/src/kernels/
+ARG KVERSION
 
-RUN echo "KVERSION_PX=${KVERSION_PX}" >&2
+RUN echo "KVERSION=${KVERSION}" >&2
 
 # Install both the devel (for headers/tools) and the kernel image proper (for vmlinuz BTF, needed to built this module with BTF info)
 WORKDIR /temprpm
@@ -179,15 +179,23 @@ RUN yum install -y /temprpm/kernel*.rpm --allowerasing
 # check again what gcc version is being used; show headers installed etc
 RUN gcc --version >&2
 RUN ls -la /usr/src/kernels >&2
-RUN ls -la /usr/src/kernels/${KVERSION_PX} >&2
+RUN ls -la /usr/src/kernels/${KVERSION} >&2
 
 # Copy 'vmlinuz' (from the kernel pkg, in /boot) in a place the build will find it. Decompress it using extract-vmlinuz (which somehow is not included in the devel package, so we've a copy in "assets").
 # This is needed to the px module gets correct BTF typeinfo.
 ADD assets/extract-vmlinux /usr/bin/extract-vmlinux
 RUN chmod +x /usr/bin/extract-vmlinux
-RUN cp -v /boot/vmlinuz-* /usr/src/kernels/${KVERSION_PX}/vmlinuz
-RUN file  /usr/src/kernels/${KVERSION_PX}/vmlinuz
-RUN /usr/bin/extract-vmlinux /usr/src/kernels/${KVERSION_PX}/vmlinuz > /usr/src/kernels/${KVERSION_PX}/vmlinux
+RUN cp -v /boot/vmlinuz-* /usr/src/kernels/${KVERSION}/vmlinuz
+RUN file  /usr/src/kernels/${KVERSION}/vmlinuz
+RUN /usr/bin/extract-vmlinux /usr/src/kernels/${KVERSION}/vmlinuz > /usr/src/kernels/${KVERSION}/vmlinux
+
+RUN echo 'Module builder is ready' >&2
+
+# Layer using the modulebuilder to build px-fuse out-of-tree module
+FROM modulebuilder as pxbuilder
+
+# Used for module building; KVERSION is the dir under /usr/src/kernels/
+ARG KVERSION
 
 WORKDIR /src/
 # with fixes on top of https://github.com/portworx/px-fuse.git # v3.0.4
@@ -200,7 +208,7 @@ WORKDIR /src/px-fuse
 RUN git checkout ${PX_FUSE_BRANCH}
 RUN autoreconf && ./configure # Needed to get a root Makefile
 
-RUN make rpm KVERSION=${KVERSION_PX}
+RUN make rpm KVERSION=${KVERSION}
 
 # After the build, check the .ko built
 RUN file ./rpm/px/BUILD/px-src/px.ko >&2
