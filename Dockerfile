@@ -49,7 +49,7 @@ RUN git clone https://git.kernel.org/pub/scm/devel/pahole/pahole.git && \
       cmake -D__LIB=lib -DCMAKE_INSTALL_PREFIX=/usr .. && \
       make install && \
       ldconfig && \
-      pahole --version && which pahole && \
+      pahole --version && command -v pahole && \
       rm -rf /src/pahole
 
 # Prepare signing keys in this common layer; both kernel and px module will use it.
