@@ -27,7 +27,7 @@ FROM ${EL_IMAGE}:${EL_VERSION} AS basebuilder
 # Common deps across all kernels; try to have as much as possible here so cache is reused
 # Developer tools for kernel building, from baseos; "yum-utils" for "yum-builddep"; "pciutils-libs" needed to install headers/devel later; cmake for building pahole
 RUN dnf -y groupinstall 'Development Tools'
-RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils pciutils-libs cmake bc rsync
+RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils pciutils-libs cmake bc rsync kmod
 RUN dnf -y install gcc-toolset-12 # 12.2.1-7 at the time of writing
 
 # Use gcc-12 toolchain as default. Every RUN statement after this is affected, inclusive after FROMs, as long as this is the base layer.
