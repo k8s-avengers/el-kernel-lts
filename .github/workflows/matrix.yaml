@@ -1,6 +1,6 @@
 name: matrix
 on:
-  # schedule: [ cron: '0 5 * * *' ] # every day at 5am UTC
+  schedule: [ cron: '0 5 * * *' ] # every day at 5am UTC
   workflow_dispatch:
 
 jobs:
@@ -8,7 +8,7 @@ jobs:
     env:
       BASE_OCI_REF: "ghcr.io/${{ github.repository_owner }}/"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      KERNEL_RPM_VERSION: "1001" # Bump this to rebuild everything
+      KERNEL_RPM_VERSION: "1002" # Bump this to rebuild everything
     permissions:
       packages: write # to write to ghcr.io
       contents: write # to commit to the repo
