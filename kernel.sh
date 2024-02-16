@@ -7,6 +7,7 @@ declare KERNEL_MINOR="${KERNEL_MINOR:-"1"}"
 declare EL_MAJOR_VERSION="${EL_MAJOR_VERSION:-"8"}"
 declare KERNEL_RPM_VERSION="${KERNEL_RPM_VERSION:-"666"}"
 declare FLAVOR="${FLAVOR:-"${2:-"kvm"}"}" # maybe default to generic? kvm is much faster to build
+declare GITHUB_OUTPUT="${GITHUB_OUTPUT:-"github_actions.output.kv"}"
 
 if [[ ! -f kernel-releases.json ]]; then
 	echo "Getting kernel-releases.json from kernel.org" >&2
@@ -62,7 +63,8 @@ case "${1:-"build"}" in
 		echo "BASE_OCI_REF: ${BASE_OCI_REF}" >&2 # Should end with a slash, or might have prefix, don't assume
 		docker pull quay.io/skopeo/stable:latest
 
-		declare image_versioned="${BASE_OCI_REF}el-kernel-lts:el${EL_MAJOR_VERSION}-${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.${KERNEL_POINT_RELEASE}-${KERNEL_RPM_VERSION}"
+		declare FULL_VERSION="el${EL_MAJOR_VERSION}-${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.${KERNEL_POINT_RELEASE}-${KERNEL_RPM_VERSION}"
+		declare image_versioned="${BASE_OCI_REF}el-kernel-lts:${FULL_VERSION}"
 		declare image_latest="${BASE_OCI_REF}el-kernel-lts:el${EL_MAJOR_VERSION}-${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.y-latest"
 		declare image_builder="${BASE_OCI_REF}el-kernel-lts:el${EL_MAJOR_VERSION}-${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.${KERNEL_POINT_RELEASE}-builder"
 
@@ -70,19 +72,48 @@ case "${1:-"build"}" in
 		echo "image_latest: '${image_latest}'" >&2
 		echo "image_builder: '${image_builder}'" >&2
 
-		# build & tag up to the kernelconfigured stage as the image_builder
-		docker build -t "${image_builder}" --target kernelconfigured "${build_args[@]}" .
+		# Set GH output with the full version
+		echo "FULL_VERSION=${FULL_VERSION}" >> "${GITHUB_OUTPUT}"
 
-		# build final stage & push
-		docker build -t "${image_versioned}" "${build_args[@]}" .
-		docker push "${image_versioned}"
+		# Use skopeo to check if the image_versioned tag already exists, if so, skip the build
+		declare ALREADY_BUILT="no"
+		if docker run quay.io/skopeo/stable:latest inspect "docker://${image_versioned}"; then
+			echo "Image '${image_versioned}' already exists, skipping build." >&2
+			ALREADY_BUILT="yes"
+		fi
 
-		# tag & push the latest
-		docker tag "${image_versioned}" "${image_latest}"
-		docker push "${image_latest}"
+		echo "ALREADY_BUILT=${ALREADY_BUILT}" >> "${GITHUB_OUTPUT}"
 
-		# push the builder
-		docker push "${image_builder}"
+		if [[ "${ALREADY_BUILT}" == "no" ]]; then
+			# build & tag up to the kernelconfigured stage as the image_builder
+			docker build -t "${image_builder}" --target kernelconfigured "${build_args[@]}" .
+
+			# build final stage & push
+			docker build -t "${image_versioned}" "${build_args[@]}" .
+			docker push "${image_versioned}"
+
+			# tag & push the latest
+			docker tag "${image_versioned}" "${image_latest}"
+			docker push "${image_latest}"
+
+			# push the builder
+			if [[ "${PUSH_BUILDER_IMAGE:-"no"}" == "yes" ]]; then
+				docker push "${image_builder}"
+			fi
+		fi
+
+		# Get the built rpms out of the image and into our 'out' dir
+		declare outdir="out"
+		docker run -v "$(pwd)/${outdir}:/host" "${image_versioned}" sh -c "cp -rpv /out/* /host/"
+
+		echo "Showing out dir:" >&2
+		ls -lahR "${outdir}" >&2
+
+		# Prepare a 'dist' dir with flat binary (not source) RPMs across all arches.
+		echo "Preparing dist dir" >&2
+		mkdir -p dist
+		cp -v out/RPMS/*/*.rpm dist/
+		ls -lahR "dist" >&2
 		;;
 
 esac

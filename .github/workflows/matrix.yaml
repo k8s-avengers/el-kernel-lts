@@ -16,7 +16,9 @@ jobs:
     strategy:
       fail-fast: false # let other jobs try to complete if one fails
       matrix:
-        include: # To build against a specific EL_MINOR_VERSION eg 7, use EL_VERSION to override "8.7"; otherwise uses latest 
+        include:
+          # To build against a specific EL_MINOR_VERSION eg 7, use EL_VERSION to override "8.7"; otherwise uses latest
+          # To also push a builder image, set PUSH_BUILDER_IMAGE to "yes" 
           - { id: "el8-6.1.y-kvm", env: { EL_MAJOR_VERSION: "8", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "kvm" } }
           - { id: "el9-6.1.y-kvm", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "kvm" } }
           - { id: "el8-6.1.y-generic", env: { EL_MAJOR_VERSION: "8", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "generic" } }
@@ -42,26 +44,18 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}    # GitHub actions builtin token. repo has to have pkg access.
 
       - name: Actually process ${{matrix.id}}
-        id: magic
+        id: buildkernel
         env: ${{ matrix.env }} # this gets combined with the job-wide env's like BASE_OCI_REF
         run: |
           bash kernel.sh checkbuildandpush
 
-      - name: Commit changes to the examples directory # @TODO not really used, "yet"
-        run: |
-          git config --global user.name "GHA workflow"
-          git config --global user.email "workflow@github.com"
-          git pull || true # repo might have changed since we started, avoid conflicts
-          git add examples || true
-          git commit -m "Update examples for ${{ matrix.id }}" || true
-          git push || true
-  
-  # release gets called when all build jobs are done
-  release: # @TODO not really used "yet"
-    needs: [ build ] # depend on the previous jobs...
-    if: "${{ !cancelled() }}" # ... but run even if (some of) them failed, but not if job was cancelled
-    runs-on: ubuntu-latest
-    steps:
-      - name: List current dir
-        run: |
-          ls -lahtR
+      # Release the artifacts into GitHub Releases for easy downloading
+      - name: "GH Release ${{matrix.id}} for version ${{ steps.buildkernel.outputs.FULL_VERSION }}"
+        uses: "marvinpinto/action-automatic-releases@latest"
+        with:
+          repo_token: "${{ secrets.GITHUB_TOKEN }}"
+          automatic_release_tag: "${{matrix.id}}"
+          prerelease: false
+          title: "${{ steps.buildkernel.outputs.FULL_VERSION }} for ${{matrix.id}}"
+          files: |
+            dist/*.rpm
