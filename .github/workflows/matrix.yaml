@@ -51,6 +51,7 @@ jobs:
 
       # Release the artifacts into GitHub Releases for easy downloading
       - name: "GH Release ${{matrix.id}} for version ${{ steps.buildkernel.outputs.FULL_VERSION }}"
+        if: "${{ steps.buildkernel.outputs.ALREADY_BUILT == 'no' }}" # Only if not already done
         uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"

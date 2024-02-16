@@ -84,22 +84,24 @@ case "${1:-"build"}" in
 
 		echo "ALREADY_BUILT=${ALREADY_BUILT}" >> "${GITHUB_OUTPUT}"
 
-		if [[ "${ALREADY_BUILT}" == "no" ]]; then
-			# build & tag up to the kernelconfigured stage as the image_builder
-			docker build -t "${image_builder}" --target kernelconfigured "${build_args[@]}" .
+		if [[ "${ALREADY_BUILT}" == "yes" ]]; then
+			exit 0
+		fi
 
-			# build final stage & push
-			docker build -t "${image_versioned}" "${build_args[@]}" .
-			docker push "${image_versioned}"
+		# build & tag up to the kernelconfigured stage as the image_builder
+		docker build -t "${image_builder}" --target kernelconfigured "${build_args[@]}" .
 
-			# tag & push the latest
-			docker tag "${image_versioned}" "${image_latest}"
-			docker push "${image_latest}"
+		# build final stage & push
+		docker build -t "${image_versioned}" "${build_args[@]}" .
+		docker push "${image_versioned}"
 
-			# push the builder
-			if [[ "${PUSH_BUILDER_IMAGE:-"no"}" == "yes" ]]; then
-				docker push "${image_builder}"
-			fi
+		# tag & push the latest
+		docker tag "${image_versioned}" "${image_latest}"
+		docker push "${image_latest}"
+
+		# push the builder
+		if [[ "${PUSH_BUILDER_IMAGE:-"no"}" == "yes" ]]; then
+			docker push "${image_builder}"
 		fi
 
 		# Get the built rpms out of the image and into our 'out' dir
