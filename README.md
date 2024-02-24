@@ -66,7 +66,7 @@ Example:
 # Might need to add --privileged depending on your user / setup / podman / etc
 # ATTENTION: the 'kvm' flavor is only for qemu/kvm virtio-based machines and wont' work everywhere, use 'generic' if it ever finishes building
 # Adapt `el8-kvm-6.1.y` to your liking; eg `el8-generic-6.1.y` or `el9-kvm-6.1.y`
-docker run -it -v "$(pwd)/kernel-lts:/host" ghcr.io/rpardini/el-kernel-lts:el8-kvm-6.1.y-latest
+docker run -it -v "$(pwd)/kernel-lts:/host" ghcr.io/k8s-avengers/el-kernel-lts:el8-kvm-6.1.y-latest
 # Installing the module will emit errors for depmod and modprobe on the first install; module will only be loaded after reboot.
 yum install kernel-lts/kernel_lts_kvm_61y-6.1.71_1000.el8-1.x86_64.rpm kernel-lts/px-6.1.71-1000.x86_64.rpm
 grubby --default-kernel # should output /boot/vmlinuz-6.1.71-1000.el8

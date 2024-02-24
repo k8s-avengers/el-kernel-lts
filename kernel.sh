@@ -47,15 +47,15 @@ case "${1:-"build"}" in
 	config)
 		# bail if not interactive (stdin is a terminal)
 		[[ ! -t 0 ]] && echo "not interactive, can't configure" >&2 && exit 1
-		docker build -t rpardini/el-kernel-lts:builder --target kernelconfigured "${build_args[@]}" .
-		docker run -it --rm -v "$(pwd):/host" rpardini/el-kernel-lts:builder bash -c "echo 'Config ${INPUT_DEFCONFIG}' && make menuconfig && make savedefconfig && cp defconfig /host/${INPUT_DEFCONFIG} && echo 'Saved ${INPUT_DEFCONFIG}'"
+		docker build -t k8s-avengers/el-kernel-lts:builder --target kernelconfigured "${build_args[@]}" .
+		docker run -it --rm -v "$(pwd):/host" k8s-avengers/el-kernel-lts:builder bash -c "echo 'Config ${INPUT_DEFCONFIG}' && make menuconfig && make savedefconfig && cp defconfig /host/${INPUT_DEFCONFIG} && echo 'Saved ${INPUT_DEFCONFIG}'"
 		;;
 
 	build)
-		docker build -t rpardini/el-kernel-lts:rpms "${build_args[@]}" .
+		docker build -t k8s-avengers/el-kernel-lts:rpms "${build_args[@]}" .
 
 		declare outdir="out-${KERNEL_MAJOR}.${KERNEL_MINOR}-${FLAVOR}-el${EL_MAJOR_VERSION}"
-		docker run -it -v "$(pwd)/${outdir}:/host" rpardini/el-kernel-lts:rpms sh -c "cp -rpv /out/* /host/"
+		docker run -it -v "$(pwd)/${outdir}:/host" k8s-avengers/el-kernel-lts:rpms sh -c "cp -rpv /out/* /host/"
 		;;
 
 	checkbuildandpush)

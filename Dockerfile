@@ -199,7 +199,7 @@ ARG KVERSION
 
 WORKDIR /src/
 # with fixes on top of https://github.com/portworx/px-fuse.git # v3.0.4
-ARG PX_FUSE_REPO="https://github.com/rpardini/px-fuse-mainline.git"
+ARG PX_FUSE_REPO="https://github.com/k8s-avengers/px-fuse-mainline.git"
 ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes-btf"
 
 RUN git clone ${PX_FUSE_REPO} px-fuse
