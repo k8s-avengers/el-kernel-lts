@@ -47,12 +47,12 @@ case "${1:-"build"}" in
 	config)
 		# bail if not interactive (stdin is a terminal)
 		[[ ! -t 0 ]] && echo "not interactive, can't configure" >&2 && exit 1
-		docker build -t k8s-avengers/el-kernel-lts:builder --target kernelconfigured "${build_args[@]}" .
+		docker buildx build --progress=plain -t k8s-avengers/el-kernel-lts:builder --target kernelconfigured "${build_args[@]}" .
 		docker run -it --rm -v "$(pwd):/host" k8s-avengers/el-kernel-lts:builder bash -c "echo 'Config ${INPUT_DEFCONFIG}' && make menuconfig && make savedefconfig && cp defconfig /host/${INPUT_DEFCONFIG} && echo 'Saved ${INPUT_DEFCONFIG}'"
 		;;
 
 	build)
-		docker build -t k8s-avengers/el-kernel-lts:rpms "${build_args[@]}" .
+		docker buildx build --progress=plain -t k8s-avengers/el-kernel-lts:rpms "${build_args[@]}" .
 
 		declare outdir="out-${KERNEL_MAJOR}.${KERNEL_MINOR}-${FLAVOR}-el${EL_MAJOR_VERSION}"
 		docker run -it -v "$(pwd)/${outdir}:/host" k8s-avengers/el-kernel-lts:rpms sh -c "cp -rpv /out/* /host/"
@@ -89,10 +89,10 @@ case "${1:-"build"}" in
 		fi
 
 		# build & tag up to the kernelconfigured stage as the image_builder
-		docker build -t "${image_builder}" --target kernelconfigured "${build_args[@]}" .
+		docker buildx build --progress=plain -t "${image_builder}" --target kernelconfigured "${build_args[@]}" .
 
 		# build final stage & push
-		docker build -t "${image_versioned}" "${build_args[@]}" .
+		docker buildx build --progress=plain -t "${image_versioned}" "${build_args[@]}" .
 		docker push "${image_versioned}"
 
 		# tag & push the latest
