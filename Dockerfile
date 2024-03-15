@@ -198,14 +198,16 @@ FROM modulebuilder as pxbuilder
 ARG KVERSION
 
 WORKDIR /src/
-# with fixes on top of https://github.com/portworx/px-fuse.git # v3.0.4
+# with fixes on top of https://github.com/portworx/px-fuse.git # v3.1.0
 ARG PX_FUSE_REPO="https://github.com/k8s-avengers/px-fuse-mainline.git"
-ARG PX_FUSE_BRANCH="v3.0.4-rpm-fixes-btf"
+ARG PX_FUSE_BRANCH="v3.1.0-rpm-fixes-btf"
 
-RUN git clone ${PX_FUSE_REPO} px-fuse
+RUN echo Cloning the ${PX_FUSE_REPO} repo with branch ${PX_FUSE_BRANCH} 
+RUN git clone --branch=${PX_FUSE_BRANCH} ${PX_FUSE_REPO} px-fuse
 
 WORKDIR /src/px-fuse
 RUN git checkout ${PX_FUSE_BRANCH}
+RUN git log 
 RUN autoreconf && ./configure # Needed to get a root Makefile
 
 RUN make rpm KVERSION=${KVERSION}
