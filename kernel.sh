@@ -8,19 +8,30 @@ declare EL_MAJOR_VERSION="${EL_MAJOR_VERSION:-"8"}"
 declare KERNEL_RPM_VERSION="${KERNEL_RPM_VERSION:-"666"}"
 declare FLAVOR="${FLAVOR:-"${2:-"kvm"}"}" # maybe default to generic? kvm is much faster to build
 declare GITHUB_OUTPUT="${GITHUB_OUTPUT:-"github_actions.output.kv"}"
+declare MATRIX_ID="${MATRIX_ID:-"el8-6.1.y-kvm"}"
 
-if [[ ! -f kernel-releases.json ]]; then
-	echo "Getting kernel-releases.json from kernel.org" >&2
-	curl "https://www.kernel.org/releases.json" > kernel-releases.json
+# If FIXED_POINT_RELEASE is set, skip the check and use it
+if [[ -n "${FIXED_POINT_RELEASE:-""}" ]]; then
+	KERNEL_POINT_RELEASE="${FIXED_POINT_RELEASE}"
+	echo "Using FIXED_POINT_RELEASE: ${KERNEL_POINT_RELEASE}" >&2
+	POINT_RELEASE_TRI="${KERNEL_MAJOR}.${KERNEL_MINOR}.${FIXED_POINT_RELEASE}"
+	POINT_RELEASE="${FIXED_POINT_RELEASE}"
+	echo "(fixed) POINT_RELEASE_TRI: ${POINT_RELEASE_TRI}" >&2
+	echo "(fixed) POINT_RELEASE: ${POINT_RELEASE}" >&2
 else
-	echo "Using disk cached kernel-releases.json" >&2
-fi
+	if [[ ! -f kernel-releases.json ]]; then
+		echo "Getting kernel-releases.json from kernel.org" >&2
+		curl "https://www.kernel.org/releases.json" > kernel-releases.json
+	else
+		echo "Using disk cached kernel-releases.json" >&2
+	fi
 
-# shellcheck disable=SC2002 # cat is not useless. my cat's stylistic
-POINT_RELEASE_TRI="$(cat kernel-releases.json | jq -r ".releases[].version" | grep -v -e "^next\-" -e "\-rc" | grep -e "^${KERNEL_MAJOR}\.${KERNEL_MINOR}\.")"
-POINT_RELEASE="$(echo "${POINT_RELEASE_TRI}" | cut -d '.' -f 3)"
-echo "POINT_RELEASE_TRI: ${POINT_RELEASE_TRI}" >&2
-echo "POINT_RELEASE: ${POINT_RELEASE}" >&2
+	# shellcheck disable=SC2002 # cat is not useless. my cat's stylistic
+	POINT_RELEASE_TRI="$(cat kernel-releases.json | jq -r ".releases[].version" | grep -v -e "^next\-" -e "\-rc" | grep -e "^${KERNEL_MAJOR}\.${KERNEL_MINOR}\.")"
+	POINT_RELEASE="$(echo "${POINT_RELEASE_TRI}" | cut -d '.' -f 3)"
+	echo "POINT_RELEASE_TRI: ${POINT_RELEASE_TRI}" >&2
+	echo "POINT_RELEASE: ${POINT_RELEASE}" >&2
+fi
 
 # Calculate the input DEFCONFIG
 INPUT_DEFCONFIG="defconfigs/${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}-x86_64"
@@ -30,6 +41,10 @@ if [[ ! -f "${INPUT_DEFCONFIG}" ]]; then
 fi
 
 declare KERNEL_POINT_RELEASE="${KERNEL_POINT_RELEASE:-"${POINT_RELEASE}"}"
+
+# Calculate MATRIX_ID_POINT_RELEASE by replacing '.y' in MATRIX_ID with .${MATRIX_ID}
+declare MATRIX_ID_POINT_RELEASE="${MATRIX_ID//.y/.${KERNEL_POINT_RELEASE}}"
+echo "MATRIX_ID_POINT_RELEASE: ${MATRIX_ID_POINT_RELEASE}" >&2
 
 declare -a build_args=(
 	"--build-arg" "KERNEL_MAJOR=${KERNEL_MAJOR}"
@@ -74,6 +89,8 @@ case "${1:-"build"}" in
 
 		# Set GH output with the full version
 		echo "FULL_VERSION=${FULL_VERSION}" >> "${GITHUB_OUTPUT}"
+		# Same with MATRIX_ID_POINT_RELEASE
+		echo "MATRIX_ID_POINT_RELEASE=${MATRIX_ID_POINT_RELEASE}" >> "${GITHUB_OUTPUT}"
 
 		# Use skopeo to check if the image_versioned tag already exists, if so, skip the build
 		declare ALREADY_BUILT="no"
