@@ -37,11 +37,17 @@ else
 		echo "Using disk cached kernel-releases.json" >&2
 	fi
 
+	set +e # multiple greps might fail in a pipe, allow for a while
 	# shellcheck disable=SC2002 # cat is not useless. my cat's stylistic
 	POINT_RELEASE_TRI="$(cat kernel-releases.json | jq -r ".releases[].version" | grep -v -e "^next\-" -e "\-rc" | grep -e "^${KERNEL_MAJOR}\.${KERNEL_MINOR}\.")"
 	POINT_RELEASE="$(echo "${POINT_RELEASE_TRI}" | cut -d '.' -f 3)"
 	echo "POINT_RELEASE_TRI: ${POINT_RELEASE_TRI}" >&2
 	echo "POINT_RELEASE: ${POINT_RELEASE}" >&2
+	set -e # back to normal
+	if [[ -z "${POINT_RELEASE}" ]]; then
+		echo "ERROR: Could not find a point release for ${KERNEL_MAJOR}.${KERNEL_MINOR} in kernel-releases.json" >&2
+		exit 1
+	fi
 fi
 
 # Calculate the input DEFCONFIG
