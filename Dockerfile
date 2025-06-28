@@ -1,6 +1,6 @@
 # Base image ARGs, default to Rocky (thanks Rocky!) but you can override if you've RHEL subscription etc
 ARG EL_MAJOR_VERSION=8
-ARG EL_IMAGE="rockylinux"
+ARG EL_IMAGE="docker.io/rockylinux/rockylinux"
 ARG EL_VERSION=${EL_MAJOR_VERSION}
 
 # Kernel target; "primary keys" together with EL_MAJOR_VERSION above.
