@@ -3,6 +3,9 @@ ARG EL_MAJOR_VERSION=8
 ARG EL_IMAGE="docker.io/rockylinux/rockylinux"
 ARG EL_VERSION=${EL_MAJOR_VERSION}
 
+# Toolchain ARGs - compiler to use
+ARG GCC_TOOLSET_NAME="gcc-toolset-12"
+
 # Kernel target; "primary keys" together with EL_MAJOR_VERSION above.
 ARG KERNEL_MAJOR=6
 ARG KERNEL_MINOR=1
@@ -27,12 +30,21 @@ FROM ${EL_IMAGE}:${EL_VERSION} AS basebuilder
 # Common deps across all kernels; try to have as much as possible here so cache is reused
 # Developer tools for kernel building, from baseos; "yum-utils" for "yum-builddep"; "pciutils-libs" needed to install headers/devel later; cmake for building pahole
 RUN dnf -y groupinstall 'Development Tools'
-RUN dnf -y install ncurses-devel openssl-devel elfutils-libelf-devel python3 wget tree git rpmdevtools rpmlint yum-utils pciutils-libs cmake bc rsync kmod
-RUN dnf -y install gcc-toolset-12 # 12.2.1-7 at the time of writing
+RUN dnf -y install ncurses-devel openssl-devel python3 wget tree git rpmdevtools yum-utils pciutils-libs cmake bc rsync kmod
+RUN dnf -y install rpmlint || true # might fail on EL10? not sure if strictly required
+RUN dnf -y install elfutils-libelf-devel || true # might fail on non-x86
+
+ARG GCC_TOOLSET_NAME
+RUN dnf -y install ${GCC_TOOLSET_NAME}
+
+
+# Dockerfiles won't allow using ARGS in SHELL, so we need to use a trick here; create a script that will be used as the shell.
+RUN echo -e '#!/bin/bash\n/usr/bin/scl enable '"${GCC_TOOLSET_NAME}"' -- bash -xe -c "$@"' > /usr/bin/shell_with_toolset.sh && \
+    chmod +x /usr/bin/shell_with_toolset.sh
 
 # Use gcc-12 toolchain as default. Every RUN statement after this is affected, inclusive after FROMs, as long as this is the base layer.
 # It makes escaping funny.
-SHELL ["/usr/bin/scl", "enable", "gcc-toolset-12", "--", "bash", "-xe", "-c"]
+SHELL ["/usr/bin/shell_with_toolset.sh"]
 
 RUN gcc --version
 
@@ -60,7 +72,7 @@ RUN echo Sign with: $(realpath /keys/kernel_key.pem) >&2
 
 
 # Layer with the unpacked kernel source
-FROM basebuilder as kernelsourceunpacked
+FROM basebuilder AS kernelsourceunpacked
 
 # ARGs used from global scope in this stage
 ARG KERNEL_MAJOR
@@ -81,7 +93,7 @@ RUN wget --progress=dot:giga -O linux-${KERNEL_VERSION_FULL}.tar.xz https://www.
 WORKDIR /build/linux
 
 # Separate layer for patching
-FROM kernelsourceunpacked as kernelpatched
+FROM kernelsourceunpacked AS kernelpatched
 
 ARG KERNEL_MAJOR
 ARG KERNEL_MINOR
@@ -98,7 +110,7 @@ RUN bash /build/patches/apply_patches.sh
 
 
 # Layer with the config prepared, on top of patches
-FROM kernelpatched as kernelconfigured
+FROM kernelpatched AS kernelconfigured
 
 # ARGs used from global scope in this stage
 ARG INPUT_DEFCONFIG
@@ -150,7 +162,7 @@ ENV KBUILD_BUILD_USER=${KERNEL_PKG} KBUILD_BUILD_HOST=kernel-lts KGZIP=pigz
 
 
 # Separate layer, so the above can be used for interactive building
-FROM kernelconfigured as kernelbuilder
+FROM kernelconfigured AS kernelbuilder
 # check again what gcc version is being used
 RUN gcc --version >&2
 
@@ -164,7 +176,7 @@ RUN tree /root/rpmbuild/RPMS >&2
 RUN tree /root/rpmbuild/SRPMS >&2
 
 # Generic Out-of-Tree Module kernelbuilder
-FROM basebuilder as modulebuilder
+FROM basebuilder AS modulebuilder
 
 # Used for module building; KVERSION is the dir under /usr/src/kernels/
 ARG KVERSION
@@ -192,7 +204,7 @@ RUN /usr/bin/extract-vmlinux /usr/src/kernels/${KVERSION}/vmlinuz > /usr/src/ker
 RUN echo 'Module builder is ready' >&2
 
 # Layer using the modulebuilder to build px-fuse out-of-tree module
-FROM modulebuilder as pxbuilder
+FROM modulebuilder AS pxbuilder
 
 # Used for module building; KVERSION is the dir under /usr/src/kernels/
 ARG KVERSION

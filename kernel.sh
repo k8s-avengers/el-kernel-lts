@@ -4,11 +4,22 @@ set -e
 
 declare KERNEL_MAJOR="${KERNEL_MAJOR:-"6"}"
 declare KERNEL_MINOR="${KERNEL_MINOR:-"1"}"
-declare EL_MAJOR_VERSION="${EL_MAJOR_VERSION:-"8"}"
+declare EL_MAJOR_VERSION="${EL_MAJOR_VERSION:-"9"}"
 declare KERNEL_RPM_VERSION="${KERNEL_RPM_VERSION:-"666"}"
-declare FLAVOR="${FLAVOR:-"${2:-"kvm"}"}" # maybe default to generic? kvm is much faster to build
+declare FLAVOR="${FLAVOR:-"${2:-"kvm"}"}" # kvm is much faster to build than generic
 declare GITHUB_OUTPUT="${GITHUB_OUTPUT:-"github_actions.output.kv"}"
-declare MATRIX_ID="${MATRIX_ID:-"el8-6.1.y-kvm"}"
+
+declare MATRIX_ID="${MATRIX_ID:-"el${EL_MAJOR_VERSION}-${KERNEL_MAJOR}.${KERNEL_MINOR}.y-${FLAVOR}"}"
+
+# Different toolchain settings for different EL versions; use a case statement for 8+9, then 10
+declare GCC_TOOLSET_NAME="gcc-toolset-12"
+declare PAHOLE_VERSION="v1.25"
+case "${EL_MAJOR_VERSION}" in
+	10)
+		GCC_TOOLSET_NAME="gcc-toolset-14"
+		PAHOLE_VERSION="v1.30"
+		;;
+esac
 
 # If FIXED_POINT_RELEASE is set, skip the check and use it
 if [[ -n "${FIXED_POINT_RELEASE:-""}" ]]; then
@@ -54,6 +65,7 @@ declare -a build_args=(
 	"--build-arg" "KERNEL_POINT_RELEASE=${KERNEL_POINT_RELEASE}"
 	"--build-arg" "FLAVOR=${FLAVOR}"
 	"--build-arg" "INPUT_DEFCONFIG=${INPUT_DEFCONFIG}"
+	"--build-arg" "GCC_TOOLSET_NAME=${GCC_TOOLSET_NAME}"
 )
 
 echo "-- Args: ${build_args[*]}" >&2
