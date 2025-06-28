@@ -150,8 +150,8 @@ RUN sed -i 's/Source: kernel-/Source: ${KERNEL_PKG}-/' scripts/package/mkspec
 RUN sed -i 's/KERNELPATH := kernel-/KERNELPATH := ${KERNEL_PKG}-/' scripts/Makefile.package
 
 # Debugs
-RUN cat scripts/package/mkspec | grep -e "Name:" -e "description" -e "Source:" >&2
-RUN cat scripts/Makefile.package | grep "^KERNELPATH" >&2
+RUN cat scripts/package/mkspec | grep -e "Name:" -e "description" -e "Source:" || true >&2
+RUN cat scripts/Makefile.package | grep "^KERNELPATH"|| true  >&2
 
 # Show some options that are critical for this
 RUN cat .config | grep -e "EXTRAVERSION" -e "GCC" -e "PAHOLE" -e "DWARF" -e "BTF" -e "BTRFS" -e "XXHASH" -e "DEBUG_INFO" -e "MODULE_SIG" -e "CRASH_CORE" | grep -v "\ is not set" | sort >&2
