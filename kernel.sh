@@ -11,13 +11,17 @@ declare GITHUB_OUTPUT="${GITHUB_OUTPUT:-"github_actions.output.kv"}"
 
 declare MATRIX_ID="${MATRIX_ID:-"el${EL_MAJOR_VERSION}-${KERNEL_MAJOR}.${KERNEL_MINOR}.y-${FLAVOR}"}"
 
-# Different toolchain settings for different EL versions; use a case statement for 8+9, then 10
+# Different toolchain settings for different kernel versions
 declare GCC_TOOLSET_NAME="gcc-toolset-12"
 declare PAHOLE_VERSION="v1.25"
-case "${EL_MAJOR_VERSION}" in
-	10)
+# Different px-fuse branches for different kernel versions
+declare PX_FUSE_BRANCH="v3.1.0-rpm-fixes-btf-nodeps"
+# Decide
+case "${KERNEL_MINOR}" in
+	12)
 		GCC_TOOLSET_NAME="gcc-toolset-14"
 		PAHOLE_VERSION="v1.30"
+		PX_FUSE_BRANCH="v-aaaae3e-6.12-rpm-btf-fixes-1"
 		;;
 esac
 
@@ -72,6 +76,7 @@ declare -a build_args=(
 	"--build-arg" "FLAVOR=${FLAVOR}"
 	"--build-arg" "INPUT_DEFCONFIG=${INPUT_DEFCONFIG}"
 	"--build-arg" "GCC_TOOLSET_NAME=${GCC_TOOLSET_NAME}"
+	"--build-arg" "PX_FUSE_BRANCH=${PX_FUSE_BRANCH}"
 )
 
 echo "-- Args: ${build_args[*]}" >&2

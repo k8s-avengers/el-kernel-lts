@@ -217,7 +217,7 @@ ARG KVERSION
 WORKDIR /src/
 # with fixes on top of https://github.com/portworx/px-fuse.git # v3.1.0
 ARG PX_FUSE_REPO="https://github.com/k8s-avengers/px-fuse-mainline.git"
-ARG PX_FUSE_BRANCH="v3.1.0-rpm-fixes-btf-nodeps"
+ARG PX_FUSE_BRANCH="v-aaaae3e-6.12-rpm-btf-fixes-1"
 
 RUN echo Cloning the ${PX_FUSE_REPO} repo with branch ${PX_FUSE_BRANCH} 
 RUN git clone --branch=${PX_FUSE_BRANCH} ${PX_FUSE_REPO} px-fuse
