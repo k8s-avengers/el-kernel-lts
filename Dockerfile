@@ -33,6 +33,7 @@ RUN dnf -y groupinstall 'Development Tools'
 RUN dnf -y install ncurses-devel openssl-devel python3 wget tree git rpmdevtools yum-utils pciutils-libs cmake bc rsync kmod
 RUN dnf -y install rpmlint || true # might fail on EL10? not sure if strictly required
 RUN dnf -y install elfutils-libelf-devel || true # might fail on non-x86
+RUN dnf -y install dwarves perl # for 6.12 rpms...
 
 ARG GCC_TOOLSET_NAME
 RUN dnf -y install ${GCC_TOOLSET_NAME}
