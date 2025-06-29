@@ -176,6 +176,11 @@ RUN make -j$(nproc --all) ${MAKE_COMMAND_RPM} INSTALL_MOD_STRIP=1 && \
     bash -c 'if [[ -d /build/linux/rpmbuild ]]; then mv /build/linux/rpmbuild /root/rpmbuild; fi' && \
     rm -rf /root/rpmbuild/BUILD
 
+# Hack; create /root/rpmbuild/tools with some file inside; include resolve_btfids if it exists.
+RUN mkdir -pv /root/rpmbuild/tools/bpf/resolve_btfids; touch /root/rpmbuild/tools/non-empty-marker
+RUN bash -c 'if [[ -f /build/linux/tools/bpf/resolve_btfids/resolve_btfids ]]; then cp -v /build/linux/tools/bpf/resolve_btfids/resolve_btfids /root/rpmbuild/tools/bpf/resolve_btfids/resolve_btfids; fi'
+RUN tree /root/rpmbuild/tools >&2
+
 RUN du -h -d 1 -x /root/rpmbuild >&2
 RUN ls -lahR /root/rpmbuild/RPMS >&2
 RUN tree /root/rpmbuild/RPMS >&2
@@ -188,6 +193,10 @@ FROM basebuilder AS modulebuilder
 ARG KVERSION
 
 RUN echo "KVERSION=${KVERSION}" >&2
+
+WORKDIR /buildtools/tools
+COPY --from=kernelbuilder /root/rpmbuild/tools /buildtools/tools
+RUN tree /buildtools >&2
 
 # Install both the devel (for headers/tools) and the kernel image proper (for vmlinuz BTF, needed to built this module with BTF info)
 WORKDIR /temprpm
@@ -208,7 +217,7 @@ RUN file  /usr/src/kernels/${KVERSION}/vmlinuz
 RUN /usr/bin/extract-vmlinux /usr/src/kernels/${KVERSION}/vmlinuz > /usr/src/kernels/${KVERSION}/vmlinux
 
 # HACK - somehow the kernel 6.12+ rpm build does not install resolve_btfids, so we copy it from the kernelbuilder layer.
-COPY --from=kernelbuilder /build/linux/tools/bpf/resolve_btfids/resolve_btfids /usr/src/kernels/${KVERSION}/tools/bpf/resolve_btfids/resolve_btfids
+RUN cp -vr /buildtools/* /usr/src/kernels/${KVERSION}/
 
 RUN echo 'Module builder is ready' >&2
 
