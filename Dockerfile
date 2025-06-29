@@ -169,6 +169,7 @@ RUN gcc --version >&2
 
 # rpm-pkg does NOT operate on the tree, instead, in /root/rpmbuild; tree is built in /root/rpmbuild/BUILD and is huge. build & remove it immediately to save a huge layer export.
 RUN make -j$(nproc --all) binrpm-pkg INSTALL_MOD_STRIP=1 && \
+    bash -c 'if [[ -d /build/linux/rpmbuild ]]; then mv /build/linux/rpmbuild /root/rpmbuild; fi' && \
     rm -rf /root/rpmbuild/BUILD
 
 RUN du -h -d 1 -x /root/rpmbuild >&2
