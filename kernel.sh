@@ -16,12 +16,17 @@ declare GCC_TOOLSET_NAME="gcc-toolset-12"
 declare PAHOLE_VERSION="v1.25"
 # Different px-fuse branches for different kernel versions
 declare PX_FUSE_BRANCH="v3.1.0-rpm-fixes-btf-nodeps"
+# Different make rpm-pkg / make binrpm-pkg - 6.12+ can't build without a git tree; 6.1 doesn't build devel without binrpm-pkg
+declare MAKE_COMMAND_RPM="rpm-pkg"
+
+
 # Decide
 case "${KERNEL_MINOR}" in
 	12)
 		GCC_TOOLSET_NAME="gcc-toolset-14"
 		PAHOLE_VERSION="v1.30"
 		PX_FUSE_BRANCH="v-aaaae3e-6.12-rpm-btf-fixes-1"
+		MAKE_COMMAND_RPM="binrpm-pkg"
 		;;
 esac
 
@@ -75,6 +80,7 @@ declare -a build_args=(
 	"--build-arg" "KERNEL_POINT_RELEASE=${KERNEL_POINT_RELEASE}"
 	"--build-arg" "FLAVOR=${FLAVOR}"
 	"--build-arg" "INPUT_DEFCONFIG=${INPUT_DEFCONFIG}"
+	"--build-arg" "MAKE_COMMAND_RPM=${MAKE_COMMAND_RPM}"
 	"--build-arg" "GCC_TOOLSET_NAME=${GCC_TOOLSET_NAME}"
 	"--build-arg" "PX_FUSE_BRANCH=${PX_FUSE_BRANCH}"
 )

@@ -12,6 +12,7 @@ ARG KERNEL_MINOR=1
 ARG FLAVOR="kvm"
 ARG KERNEL_RPM_VERSION=666
 ARG KERNEL_POINT_RELEASE=71
+ARG MAKE_COMMAND_RPM="rpm-pkg"
 
 # Derived args, still overridable, but override at your own risk ;-)
 ARG INPUT_DEFCONFIG="defconfigs/${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}-x86_64"
@@ -167,8 +168,11 @@ FROM kernelconfigured AS kernelbuilder
 # check again what gcc version is being used
 RUN gcc --version >&2
 
+# Different make invocations
+ARG MAKE_COMMAND_RPM
+
 # rpm-pkg does NOT operate on the tree, instead, in /root/rpmbuild; tree is built in /root/rpmbuild/BUILD and is huge. build & remove it immediately to save a huge layer export.
-RUN make -j$(nproc --all) binrpm-pkg INSTALL_MOD_STRIP=1 && \
+RUN make -j$(nproc --all) ${MAKE_COMMAND_RPM} INSTALL_MOD_STRIP=1 && \
     bash -c 'if [[ -d /build/linux/rpmbuild ]]; then mv /build/linux/rpmbuild /root/rpmbuild; fi' && \
     rm -rf /root/rpmbuild/BUILD
 
