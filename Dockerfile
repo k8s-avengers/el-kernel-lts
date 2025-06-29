@@ -203,6 +203,9 @@ RUN cp -v /boot/vmlinuz-* /usr/src/kernels/${KVERSION}/vmlinuz
 RUN file  /usr/src/kernels/${KVERSION}/vmlinuz
 RUN /usr/bin/extract-vmlinux /usr/src/kernels/${KVERSION}/vmlinuz > /usr/src/kernels/${KVERSION}/vmlinux
 
+# HACK - somehow the kernel 6.12+ rpm build does not install resolve_btfids, so we copy it from the kernelbuilder layer.
+COPY --from=kernelbuilder /build/linux/tools/bpf/resolve_btfids/resolve_btfids /usr/src/kernels/${KVERSION}/tools/bpf/resolve_btfids/resolve_btfids
+
 RUN echo 'Module builder is ready' >&2
 
 # Layer using the modulebuilder to build px-fuse out-of-tree module
