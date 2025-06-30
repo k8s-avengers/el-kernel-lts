@@ -148,6 +148,11 @@ RUN sed -i 's/Name: kernel/Name: ${KERNEL_PKG}/' scripts/package/mkspec
 RUN sed -i 's/%description -n kernel-devel/%description -n ${KERNEL_PKG}-devel/' scripts/package/mkspec
 RUN sed -i 's/Source: kernel-/Source: ${KERNEL_PKG}-/' scripts/package/mkspec
 
+# scripts/package/kernel.spec (6.12+): Patch the RPM name, description for the -devel pkg, and source
+RUN sed -i 's/Name: kernel/Name: ${KERNEL_PKG}/' scripts/package/kernel.spec || true
+RUN sed -i 's/%description -n kernel-devel/%description -n ${KERNEL_PKG}-devel/' scripts/package/kernel.spec || true
+RUN sed -i 's/Source: kernel-/Source: ${KERNEL_PKG}-/' scripts/package/kernel.spec || true
+
 # scripts/Makefile.package: the tarball must match the RPM package name
 RUN sed -i 's/KERNELPATH := kernel-/KERNELPATH := ${KERNEL_PKG}-/' scripts/Makefile.package
 
