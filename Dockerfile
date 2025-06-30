@@ -158,6 +158,7 @@ RUN sed -i 's/KERNELPATH := kernel-/KERNELPATH := ${KERNEL_PKG}-/' scripts/Makef
 
 # Debugs
 RUN cat scripts/package/mkspec | grep -e "Name:" -e "description" -e "Source:" || true >&2
+RUN cat scripts/package/kernel.spec | grep -e "Name:" -e "description" -e "Source:" || true >&2
 RUN cat scripts/Makefile.package | grep "^KERNELPATH"|| true  >&2
 
 # Show some options that are critical for this
