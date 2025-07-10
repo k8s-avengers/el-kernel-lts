@@ -236,7 +236,7 @@ ARG KVERSION
 WORKDIR /src/
 # with fixes on top of https://github.com/portworx/px-fuse.git # v3.1.0
 ARG PX_FUSE_REPO="https://github.com/k8s-avengers/px-fuse-mainline.git"
-ARG PX_FUSE_BRANCH="v-aaaae3e-6.12-rpm-btf-fixes-1"
+ARG PX_FUSE_BRANCH="v-aaaae3e-6.12-rpm-btf-fixes-2"
 
 RUN echo Cloning the ${PX_FUSE_REPO} repo with branch ${PX_FUSE_BRANCH} 
 RUN git clone --branch=${PX_FUSE_BRANCH} ${PX_FUSE_REPO} px-fuse
@@ -255,6 +255,7 @@ RUN modinfo ./rpm/px/BUILD/px-src/px.ko >&2
 
 RUN ls -laht rpm/px/RPMS/x86_64/*.rpm >&2
 RUN ls -laht rpm/px/SRPMS/*.rpm >&2
+RUN echo 'rpm  info'; rpm -qRp rpm/px/RPMS/x86_64/*.rpm
 
 RUN mkdir /out-px
 RUN cp -rvp rpm/px/RPMS /out-px/
