@@ -25,7 +25,7 @@ case "${KERNEL_MINOR}" in
 	12)
 		GCC_TOOLSET_NAME="gcc-toolset-14"
 		PAHOLE_VERSION="v1.30"
-		PX_FUSE_BRANCH="v-aaaae3e-6.12-rpm-btf-fixes-1"
+		PX_FUSE_BRANCH="v-aaaae3e-6.12-rpm-btf-fixes-2"
 		MAKE_COMMAND_RPM="binrpm-pkg"
 		;;
 esac
