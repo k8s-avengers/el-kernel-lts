@@ -192,6 +192,11 @@ RUN ls -lahR /root/rpmbuild/RPMS >&2
 RUN tree /root/rpmbuild/RPMS >&2
 RUN tree /root/rpmbuild/SRPMS >&2
 
+# Hack: copy signing_key.x509 in build dir somewhere we can get at them later
+RUN mkdir -pv /root/rpmbuild/certs; touch /root/rpmbuild/certs/non-empty-marker
+RUN cp -pv certs/signing_key.x509 /root/rpmbuild/certs/ || echo 'Failed copying file signing_key.x509'
+RUN ls -la /root/rpmbuild/certs
+
 # Generic Out-of-Tree Module kernelbuilder
 FROM basebuilder AS modulebuilder
 
@@ -203,6 +208,10 @@ RUN echo "KVERSION=${KVERSION}" >&2
 WORKDIR /buildtools/tools
 COPY --from=kernelbuilder /root/rpmbuild/tools /buildtools/tools
 RUN tree /buildtools >&2
+
+WORKDIR /buildtools/certs
+COPY --from=kernelbuilder /root/rpmbuild/certs /buildtools/certs
+RUN tree /buildtools/certs >&2
 
 # Install both the devel (for headers/tools) and the kernel image proper (for vmlinuz BTF, needed to built this module with BTF info)
 WORKDIR /temprpm
@@ -224,6 +233,8 @@ RUN /usr/bin/extract-vmlinux /usr/src/kernels/${KVERSION}/vmlinuz > /usr/src/ker
 
 # HACK - somehow the kernel 6.12+ rpm build does not install resolve_btfids, so we copy it from the kernelbuilder layer.
 RUN cp -vr /buildtools/* /usr/src/kernels/${KVERSION}/
+
+RUN find /usr/src/kernels/${KVERSION}/ -name signing_key.x509
 
 RUN echo 'Module builder is ready' >&2
 
