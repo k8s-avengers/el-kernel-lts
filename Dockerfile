@@ -177,10 +177,12 @@ RUN gcc --version >&2
 # Different make invocations
 ARG MAKE_COMMAND_RPM
 
-# rpm-pkg does NOT operate on the tree, instead, in /root/rpmbuild; tree is built in /root/rpmbuild/BUILD and is huge. build & remove it immediately to save a huge layer export.
-RUN make -j$(nproc --all) ${MAKE_COMMAND_RPM} INSTALL_MOD_STRIP=1 && \
-    bash -c 'if [[ -d /build/linux/rpmbuild ]]; then mv /build/linux/rpmbuild /root/rpmbuild; fi' && \
-    rm -rf /root/rpmbuild/BUILD
+RUN make -j$(nproc --all) ${MAKE_COMMAND_RPM} INSTALL_MOD_STRIP=1
+RUN if [[ -d /build/linux/rpmbuild ]]; then mv /build/linux/rpmbuild /root/rpmbuild; fi
+
+# Store a copy of the bare ELF/debug_info/btf vmlinux in a separate directory, so it can be used by the module builder later.
+RUN mkdir -pv /root/rpmbuild/vmlinux_bare
+RUN cp -v  $(find / -type f -name vmlinux | grep -v "^/sys" | xargs file | grep "ELF" | grep "debug_info" | cut -d ":" -f 1) /root/rpmbuild/vmlinux_bare/
 
 # Hack; create /root/rpmbuild/tools with some file inside; include resolve_btfids if it exists.
 RUN mkdir -pv /root/rpmbuild/tools/bpf/resolve_btfids; touch /root/rpmbuild/tools/non-empty-marker
@@ -223,13 +225,8 @@ RUN gcc --version >&2
 RUN ls -la /usr/src/kernels >&2
 RUN ls -la /usr/src/kernels/${KVERSION} >&2
 
-# Copy 'vmlinuz' (from the kernel pkg, in /boot) in a place the build will find it. Decompress it using extract-vmlinuz (which somehow is not included in the devel package, so we've a copy in "assets").
-# This is needed to the px module gets correct BTF typeinfo.
-ADD assets/extract-vmlinux /usr/bin/extract-vmlinux
-RUN chmod +x /usr/bin/extract-vmlinux
-RUN cp -v /boot/vmlinuz-* /usr/src/kernels/${KVERSION}/vmlinuz
-RUN file  /usr/src/kernels/${KVERSION}/vmlinuz
-RUN /usr/bin/extract-vmlinux /usr/src/kernels/${KVERSION}/vmlinuz > /usr/src/kernels/${KVERSION}/vmlinux
+# Grab the bare vmlinux from the build tree, as that is uncompressed and has the BTF info needed.
+COPY --from=kernelbuilder /root/rpmbuild/vmlinux_bare/vmlinux /usr/src/kernels/${KVERSION}/vmlinux
 
 # HACK - somehow the kernel 6.12+ rpm build does not install resolve_btfids, so we copy it from the kernelbuilder layer.
 RUN cp -vr /buildtools/* /usr/src/kernels/${KVERSION}/
