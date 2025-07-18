@@ -8,7 +8,7 @@ jobs:
     env:
       BASE_OCI_REF: "ghcr.io/${{ github.repository_owner }}/"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      KERNEL_RPM_VERSION: "1011" # Bump this to rebuild everything
+      KERNEL_RPM_VERSION: "1012" # Bump this to rebuild everything
     permissions:
       packages: write # to write to ghcr.io
       contents: write # to commit to the repo
@@ -27,6 +27,7 @@ jobs:
 
           # arm64
           - { id: "aarch64-6.12.y-kvm", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "12", FLAVOR: "kvm" }, runner: "ubuntu-24.04-arm" }
+          - { id: "aarch64-6.12.y-generic", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "12", FLAVOR: "generic" }, runner: "ubuntu-24.04-arm" }
 
     name: "${{ matrix.id }}"
     steps:
