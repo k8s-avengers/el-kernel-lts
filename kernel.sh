@@ -19,6 +19,24 @@ declare PX_FUSE_BRANCH="v3.1.0-rpm-fixes-btf-nodeps"
 # Different make rpm-pkg / make binrpm-pkg - 6.12+ can't build without a git tree; 6.1 doesn't build devel without binrpm-pkg
 declare MAKE_COMMAND_RPM="rpm-pkg"
 
+# Determine the architecture we're running on, as that will be the target architecture for the kernel build.
+declare OS_ARCH="undefined" TOOLCHAIN_ARCH="undefined"
+OS_ARCH="$(uname -m)"
+case "${OS_ARCH}" in
+	"x86_64" | "amd64")
+		OS_ARCH="amd64"
+		TOOLCHAIN_ARCH="x86_64"
+		;;
+	"aarch64" | "arm64")
+		OS_ARCH="arm64"
+		TOOLCHAIN_ARCH="aarch64"
+		;;
+	*)
+		echo "ERROR: Unsupported architecture '${OS_ARCH}' for kernel build." >&2
+		exit 1
+		;;
+esac
+echo "--> Architecture: OS_ARCH: ${OS_ARCH}, TOOLCHAIN_ARCH: ${TOOLCHAIN_ARCH}" >&2
 
 # Decide
 case "${KERNEL_MINOR}" in
@@ -60,7 +78,7 @@ else
 fi
 
 # Calculate the input DEFCONFIG
-INPUT_DEFCONFIG="defconfigs/${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}-x86_64"
+INPUT_DEFCONFIG="defconfigs/${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}-${TOOLCHAIN_ARCH}"
 if [[ ! -f "${INPUT_DEFCONFIG}" ]]; then
 	echo "ERROR: ${INPUT_DEFCONFIG} does not exist, check inputs/envs" >&2
 	exit 1
@@ -78,6 +96,8 @@ declare -a build_args=(
 	"--build-arg" "EL_MAJOR_VERSION=${EL_MAJOR_VERSION}"
 	"--build-arg" "KERNEL_RPM_VERSION=${KERNEL_RPM_VERSION}"
 	"--build-arg" "KERNEL_POINT_RELEASE=${KERNEL_POINT_RELEASE}"
+	"--build-arg" "TOOLCHAIN_ARCH=${TOOLCHAIN_ARCH}"
+	"--build-arg" "OS_ARCH=${OS_ARCH}"
 	"--build-arg" "FLAVOR=${FLAVOR}"
 	"--build-arg" "INPUT_DEFCONFIG=${INPUT_DEFCONFIG}"
 	"--build-arg" "MAKE_COMMAND_RPM=${MAKE_COMMAND_RPM}"
@@ -88,11 +108,22 @@ declare -a build_args=(
 echo "-- Args: ${build_args[*]}" >&2
 
 case "${1:-"build"}" in
-	config)
+	config | shellconfig)
 		# bail if not interactive (stdin is a terminal)
 		[[ ! -t 0 ]] && echo "not interactive, can't configure" >&2 && exit 1
 		docker buildx build --progress=plain -t k8s-avengers/el-kernel-lts:builder --target kernelconfigured "${build_args[@]}" .
-		docker run -it --rm -v "$(pwd):/host" k8s-avengers/el-kernel-lts:builder bash -c "echo 'Config ${INPUT_DEFCONFIG}' && make menuconfig && make savedefconfig && cp defconfig /host/${INPUT_DEFCONFIG} && echo 'Saved ${INPUT_DEFCONFIG}'"
+
+		case "${1}" in
+			shellconfig)
+				echo "'Config ${INPUT_DEFCONFIG}' && make menuconfig && make savedefconfig && cp defconfig /host/${INPUT_DEFCONFIG}"
+				echo "To produce a kvm config: rm .config; make ARCH=arm64 defconfig && make ARCH=arm64 kvm_guest.config && make savedefconfig && cp defconfig /host/${INPUT_DEFCONFIG}"
+				docker run -it --rm -v "$(pwd):/host" k8s-avengers/el-kernel-lts:builder bash
+				;;
+			config)
+				docker run -it --rm -v "$(pwd):/host" k8s-avengers/el-kernel-lts:builder bash -c "echo 'Config ${INPUT_DEFCONFIG}' && make menuconfig && make savedefconfig && cp defconfig /host/${INPUT_DEFCONFIG} && echo 'Saved ${INPUT_DEFCONFIG}'"
+				;;
+		esac
+		exit 0
 		;;
 
 	build)

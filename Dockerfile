@@ -3,6 +3,9 @@ ARG EL_MAJOR_VERSION=8
 ARG EL_IMAGE="docker.io/rockylinux/rockylinux"
 ARG EL_VERSION=${EL_MAJOR_VERSION}
 
+ARG OS_ARCH="arm64"
+ARG TOOLCHAIN_ARCH="aarch64"
+
 # Toolchain ARGs - compiler to use
 ARG GCC_TOOLSET_NAME="gcc-toolset-12"
 
@@ -15,7 +18,7 @@ ARG KERNEL_POINT_RELEASE=71
 ARG MAKE_COMMAND_RPM="rpm-pkg"
 
 # Derived args, still overridable, but override at your own risk ;-)
-ARG INPUT_DEFCONFIG="defconfigs/${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}-x86_64"
+ARG INPUT_DEFCONFIG="defconfigs/${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}-${TOOLCHAIN_ARCH}"
 ARG KERNEL_PKG="kernel_lts_${FLAVOR}_${KERNEL_MAJOR}${KERNEL_MINOR}y"
 
 ARG KERNEL_VERSION="${KERNEL_MAJOR}.${KERNEL_MINOR}"
@@ -204,6 +207,8 @@ FROM basebuilder AS modulebuilder
 
 # Used for module building; KVERSION is the dir under /usr/src/kernels/
 ARG KVERSION
+ARG OS_ARCH
+ARG TOOLCHAIN_ARCH
 
 RUN echo "KVERSION=${KVERSION}" >&2
 
@@ -217,7 +222,7 @@ RUN tree /buildtools/certs >&2
 
 # Install both the devel (for headers/tools) and the kernel image proper (for vmlinuz BTF, needed to built this module with BTF info)
 WORKDIR /temprpm
-COPY --from=kernelbuilder /root/rpmbuild/RPMS/x86_64/kernel*.rpm /temprpm/
+COPY --from=kernelbuilder /root/rpmbuild/RPMS/${TOOLCHAIN_ARCH}/kernel*.rpm /temprpm/
 RUN yum install -y /temprpm/kernel*.rpm --allowerasing
 
 # check again what gcc version is being used; show headers installed etc
@@ -240,6 +245,8 @@ FROM modulebuilder AS pxbuilder
 
 # Used for module building; KVERSION is the dir under /usr/src/kernels/
 ARG KVERSION
+ARG OS_ARCH
+ARG TOOLCHAIN_ARCH
 
 WORKDIR /src/
 # with fixes on top of https://github.com/portworx/px-fuse.git # v3.1.0
@@ -251,7 +258,6 @@ RUN git clone --branch=${PX_FUSE_BRANCH} ${PX_FUSE_REPO} px-fuse
 
 WORKDIR /src/px-fuse
 RUN git checkout ${PX_FUSE_BRANCH}
-RUN git log 
 RUN autoreconf && ./configure # Needed to get a root Makefile
 
 RUN make rpm KVERSION=${KVERSION}
@@ -261,9 +267,9 @@ RUN file ./rpm/px/BUILD/px-src/px.ko >&2
 RUN modinfo ./rpm/px/BUILD/px-src/px.ko >&2
 
 
-RUN ls -laht rpm/px/RPMS/x86_64/*.rpm >&2
+RUN ls -laht rpm/px/RPMS/${TOOLCHAIN_ARCH}/*.rpm >&2
 RUN ls -laht rpm/px/SRPMS/*.rpm >&2
-RUN echo 'rpm  info'; rpm -qRp rpm/px/RPMS/x86_64/*.rpm
+RUN echo 'rpm  info'; rpm -qRp rpm/px/RPMS/${TOOLCHAIN_ARCH}/*.rpm
 
 RUN mkdir /out-px
 RUN cp -rvp rpm/px/RPMS /out-px/
