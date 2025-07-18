@@ -8,23 +8,26 @@ jobs:
     env:
       BASE_OCI_REF: "ghcr.io/${{ github.repository_owner }}/"
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      KERNEL_RPM_VERSION: "1010" # Bump this to rebuild everything
+      KERNEL_RPM_VERSION: "1011" # Bump this to rebuild everything
     permissions:
       packages: write # to write to ghcr.io
       contents: write # to commit to the repo
-    runs-on: "ubuntu-latest"
+    runs-on: "${{ matrix.runner }}"
     strategy:
       fail-fast: false # let other jobs try to complete if one fails
       matrix:
         include:
-          # To build against a specific EL_MINOR_VERSION eg 7, use EL_VERSION to override "8.7"; otherwise uses latest
-          # To also push a builder image, set PUSH_BUILDER_IMAGE to "yes" 
-          - { id: "el8-6.1.y-kvm", env: { EL_MAJOR_VERSION: "8", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "kvm" } }
-          - { id: "el9-6.1.y-kvm", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "kvm" } }
-          - { id: "el9-6.12.y-kvm", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "12", FLAVOR: "kvm" } }
-          - { id: "el8-6.1.y-generic", env: { EL_MAJOR_VERSION: "8", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "generic" } }
-          - { id: "el9-6.1.y-generic", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "generic" } }
-          - { id: "el9-6.12.y-generic", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "12", FLAVOR: "generic" } }
+          # To also push a builder image, set PUSH_BUILDER_IMAGE to "yes"
+
+          # x86
+          - { id: "x86_64-6.1.y-kvm", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "kvm" }, runner: "ubuntu-latest" }
+          - { id: "x86_64-6.12.y-kvm", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "12", FLAVOR: "kvm" }, runner: "ubuntu-latest" }
+          - { id: "x86_64-6.1.y-generic", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "1", FLAVOR: "generic" }, runner: "ubuntu-latest" }
+          - { id: "x86_64-6.12.y-generic", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "12", FLAVOR: "generic" }, runner: "ubuntu-latest" }
+
+          # arm64
+          - { id: "aarch64-6.12.y-kvm", env: { EL_MAJOR_VERSION: "9", KERNEL_MAJOR: "6", KERNEL_MINOR: "12", FLAVOR: "kvm" }, runner: "ubuntu-24.04-arm" }
+
     name: "${{ matrix.id }}"
     steps:
       - name: cleanup GHA hosted runner
@@ -52,17 +55,17 @@ jobs:
         run: |
           MATRIX_ID="${{ matrix.id }}" bash kernel.sh checkbuildandpush
 
-      # Release the artifacts into GitHub Releases for easy downloading ("specific version")
-      - name: "GH version-specific Release ${{steps.buildkernel.outputs.MATRIX_ID_POINT_RELEASE}} for version ${{ steps.buildkernel.outputs.FULL_VERSION }}"
-        if: "${{ steps.buildkernel.outputs.ALREADY_BUILT == 'no' }}" # Only if not already done
-        uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          automatic_release_tag: "${{steps.buildkernel.outputs.MATRIX_ID_POINT_RELEASE}}"
-          prerelease: false
-          title: "${{ steps.buildkernel.outputs.FULL_VERSION }} for ${{steps.buildkernel.outputs.MATRIX_ID_POINT_RELEASE}}"
-          files: |
-            dist/*.rpm
+      ## Release the artifacts into GitHub Releases for easy downloading ("specific version")
+      #- name: "GH version-specific Release ${{steps.buildkernel.outputs.MATRIX_ID_POINT_RELEASE}} for version ${{ steps.buildkernel.outputs.FULL_VERSION }}"
+      #  if: "${{ steps.buildkernel.outputs.ALREADY_BUILT == 'no' }}" # Only if not already done
+      #  uses: "marvinpinto/action-automatic-releases@latest"
+      #  with:
+      #    repo_token: "${{ secrets.GITHUB_TOKEN }}"
+      #    automatic_release_tag: "${{steps.buildkernel.outputs.MATRIX_ID_POINT_RELEASE}}"
+      #    prerelease: false
+      #    title: "${{ steps.buildkernel.outputs.FULL_VERSION }} for ${{steps.buildkernel.outputs.MATRIX_ID_POINT_RELEASE}}"
+      #    files: |
+      #      dist/*.rpm
 
       # Release the artifacts into GitHub Releases for easy downloading ("latest")
       - name: "GH latest Release ${{matrix.id}} for version ${{ steps.buildkernel.outputs.FULL_VERSION }}"

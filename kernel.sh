@@ -3,13 +3,13 @@
 set -e
 
 declare KERNEL_MAJOR="${KERNEL_MAJOR:-"6"}"
-declare KERNEL_MINOR="${KERNEL_MINOR:-"1"}"
+declare KERNEL_MINOR="${KERNEL_MINOR:-"12"}"
 declare EL_MAJOR_VERSION="${EL_MAJOR_VERSION:-"9"}"
 declare KERNEL_RPM_VERSION="${KERNEL_RPM_VERSION:-"666"}"
 declare FLAVOR="${FLAVOR:-"${2:-"kvm"}"}" # kvm is much faster to build than generic
 declare GITHUB_OUTPUT="${GITHUB_OUTPUT:-"github_actions.output.kv"}"
 
-declare MATRIX_ID="${MATRIX_ID:-"el${EL_MAJOR_VERSION}-${KERNEL_MAJOR}.${KERNEL_MINOR}.y-${FLAVOR}"}"
+declare MATRIX_ID="${MATRIX_ID:-"${KERNEL_MAJOR}.${KERNEL_MINOR}.y-${FLAVOR}"}"
 
 # Different toolchain settings for different kernel versions
 declare GCC_TOOLSET_NAME="gcc-toolset-12"
@@ -138,10 +138,10 @@ case "${1:-"build"}" in
 		echo "BASE_OCI_REF: ${BASE_OCI_REF}" >&2 # Should end with a slash, or might have prefix, don't assume
 		docker pull quay.io/skopeo/stable:latest
 
-		declare FULL_VERSION="el${EL_MAJOR_VERSION}-${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.${KERNEL_POINT_RELEASE}-${KERNEL_RPM_VERSION}"
+		declare FULL_VERSION="${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.${KERNEL_POINT_RELEASE}-${KERNEL_RPM_VERSION}"
 		declare image_versioned="${BASE_OCI_REF}el-kernel-lts:${FULL_VERSION}"
-		declare image_latest="${BASE_OCI_REF}el-kernel-lts:el${EL_MAJOR_VERSION}-${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.y-latest"
-		declare image_builder="${BASE_OCI_REF}el-kernel-lts:el${EL_MAJOR_VERSION}-${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.${KERNEL_POINT_RELEASE}-builder"
+		declare image_latest="${BASE_OCI_REF}el-kernel-lts:${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.y-latest"
+		declare image_builder="${BASE_OCI_REF}el-kernel-lts:${FLAVOR}-${KERNEL_MAJOR}.${KERNEL_MINOR}.${KERNEL_POINT_RELEASE}-builder"
 
 		echo "image_versioned: '${image_versioned}'" >&2
 		echo "image_latest: '${image_latest}'" >&2
