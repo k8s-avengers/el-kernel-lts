@@ -275,6 +275,26 @@ RUN mkdir /out-px
 RUN cp -rvp rpm/px/RPMS /out-px/
 RUN cp -rvp rpm/px/SRPMS /out-px/
 
+# Layer using the modulebuilder to build NVIDIA GPU drivers
+FROM modulebuilder AS nvidiabuilder
+
+# Used for module building; KVERSION is the dir under /usr/src/kernels/
+ARG KVERSION
+ARG OS_ARCH
+ARG TOOLCHAIN_ARCH
+ARG KERNEL_VERSION_FULL
+
+WORKDIR /src/nvidia-open
+RUN git clone --branch=main --single-branch https://github.com/NVIDIA/open-gpu-kernel-modules.git
+WORKDIR /src/nvidia-open/open-gpu-kernel-modules
+RUN make KERNEL_UNAME=${KVERSION} modules -j$(nproc)
+RUN make KERNEL_UNAME=${KVERSION}  modules_install
+RUN modinfo  /lib/modules/${KVERSION}/kernel/drivers/video/nvidia.ko
+
+RUN mkdir /out-nvidia
+COPY --chmod=0777 assets/nvidia/package_rpm_nvidia.sh .
+RUN ./package_rpm_nvidia.sh "$(pwd)" "${KVERSION}" "${OS_ARCH}" "${TOOLCHAIN_ARCH}" "${KERNEL_VERSION_FULL}" "/out-nvidia"
+
 # Copy the RPMs to a new Alpine image for easy droppage of the .rpm's to host/etc; otherwise could be from SCRATCH
 FROM alpine:latest
 
@@ -285,6 +305,8 @@ COPY --from=kernelbuilder /root/rpmbuild/SRPMS /out/SRPMS/
 
 COPY --from=pxbuilder /out-px/RPMS /out/RPMS/
 COPY --from=pxbuilder /out-px/SRPMS /out/SRPMS/
+
+COPY --from=nvidiabuilder /out-nvidia/ /out/RPMS/
 
 RUN ls -lahR /out
 
