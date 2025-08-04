@@ -94,7 +94,7 @@ done
 # Create the SPEC
 declare spec_file="${tmp_rpmbuild_dir}/SPECS/nvidia-${NVIDIA_TYPE_DRIVER}.spec"
 cat << SPEC_FILE > "${spec_file}"
-Name:           nvidia-${NVIDIA_TYPE_DRIVER}
+Name:           nvidia-${NVIDIA_TYPE_DRIVER}-el-lts-modules
 Version:        %{KERNEL_VERSION_FULL}.%{NVIDIA_VERSION}
 Release:        1
 Summary:        nvidia ${NVIDIA_TYPE_DRIVER} modules %{TOOLCHAIN_ARCH}
@@ -102,7 +102,10 @@ License:        GPLv2
 URL:            https://github.com/NVIDIA/open-gpu-kernel-modules
 
 BuildArch:      %{TOOLCHAIN_ARCH}
-Provides:       something-something-from-nvidia
+
+# nvidia-kmod-common is a dependency of nvidia-driver-cuda userspace stuff (once you dnf module enable nvidia-driver:535)
+# TODO: might be we need to provide the version eg "3:535.261.03"
+Provides:       nvidia-kmod-common
 
 # From mainline linux's mkspec, to convince rpmbuild to not strip the module (and avoid breaking BTF info, if any, and signature, if any)
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
