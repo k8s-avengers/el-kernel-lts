@@ -134,6 +134,8 @@ ADD ${INPUT_DEFCONFIG} .config
 # Add the signing key configs. (The escape is weird due to the SHELL def in base layer containing bash -c)
 RUN ( echo 'CONFIG_MODULE_SIG_KEY=\"/keys/kernel_key.pem\"' ) >> .config
 RUN ( echo 'CONFIG_MODULE_SIG_FORCE=y' ) >> .config
+RUN ( echo 'CONFIG_MODULE_SIG=y' ) >> .config
+RUN ( echo 'CONFIG_MODULE_SIG_SHA512=y' ) >> .config
 
 # Expand the config, with defaults for new options
 RUN make olddefconfig
