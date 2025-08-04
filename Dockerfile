@@ -297,6 +297,34 @@ RUN mkdir /out-nvidia
 COPY --chmod=0777 assets/nvidia/package_rpm_nvidia.sh .
 RUN ./package_rpm_nvidia.sh "$(pwd)" "${KVERSION}" "${OS_ARCH}" "${TOOLCHAIN_ARCH}" "${KERNEL_VERSION_FULL}" "/out-nvidia"
 
+# Layer using the modulebuilder to build non-free NVIDIA GPU drivers
+FROM modulebuilder AS nvidianonfreebuilder
+
+# Used for module building; KVERSION is the dir under /usr/src/kernels/
+ARG KVERSION
+ARG OS_ARCH
+ARG TOOLCHAIN_ARCH
+ARG KERNEL_VERSION_FULL
+ARG NVIDIA_NONFREE_RUN_URL
+ARG NVIDIA_NONFREE_VERSION
+
+WORKDIR /src/nvidia-nonfree
+RUN <<DOWNLOAD_EXTRACT
+wget -O nvidia-nonfree.run ${NVIDIA_NONFREE_RUN_URL}
+chmod -v +x nvidia-nonfree.run
+./nvidia-nonfree.run --extract-only
+rm -fv nvidia-nonfree.run
+mv -v NVIDIA-Linux-* nvidia-nonfree
+DOWNLOAD_EXTRACT
+
+WORKDIR /src/nvidia-nonfree/nvidia-nonfree/kernel
+RUN make KERNEL_UNAME=${KVERSION} modules -j$(nproc)
+RUN make KERNEL_UNAME=${KVERSION}  modules_install
+RUN modinfo  /lib/modules/${KVERSION}/kernel/drivers/video/nvidia.ko
+RUN mkdir /out-nvidia
+COPY --chmod=0777 assets/nvidia/package_rpm_nvidia.sh .
+RUN NVIDIA_VERSION="${NVIDIA_NONFREE_VERSION}" NVIDIA_TYPE_DRIVER="nonfree" ./package_rpm_nvidia.sh "$(pwd)" "${KVERSION}" "${OS_ARCH}" "${TOOLCHAIN_ARCH}" "${KERNEL_VERSION_FULL}" "/out-nvidia"
+
 # Copy the RPMs to a new Alpine image for easy droppage of the .rpm's to host/etc; otherwise could be from SCRATCH
 FROM alpine:latest
 
@@ -309,6 +337,7 @@ COPY --from=pxbuilder /out-px/RPMS /out/RPMS/
 COPY --from=pxbuilder /out-px/SRPMS /out/SRPMS/
 
 COPY --from=nvidiabuilder /out-nvidia/ /out/RPMS/
+COPY --from=nvidianonfreebuilder /out-nvidia/ /out/RPMS/
 
 RUN ls -lahR /out
 

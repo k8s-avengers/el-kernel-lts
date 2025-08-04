@@ -48,22 +48,31 @@ done
 
 echo "--> Absolute paths of .ko files in /lib/modules/${KVERSION}: " "${kos_absolute_paths[@]}"
 
-# Read the version from the version.mk file in the nvidia source directory
-version_file="${nvidia_source_dir}/version.mk"
-if [[ ! -f "${version_file}" ]]; then
-	echo "Error: version.mk file not found in '${nvidia_source_dir}'."
-	exit 3
+# If NVIDIA_VERSION is unset...
+if [[ -z "${NVIDIA_VERSION}" ]]; then
+	# Read the version from the version.mk file in the nvidia source directory
+	version_file="${nvidia_source_dir}/version.mk"
+	if [[ ! -f "${version_file}" ]]; then
+		echo "Error: version.mk file not found in '${nvidia_source_dir}'."
+		exit 3
+	fi
+
+	# Parse the "NVIDIA_VERSION = 575.64.05" line; take anything after the '=' sign and trim
+	declare nvidia_version
+	nvidia_version="$(grep "^NVIDIA_VERSION" "${version_file}" | cut -d '=' -f 2 | tr -d '[:space:]')"
+
+	echo "--> NVIDIA version extracted from version.mk: '${nvidia_version}'"
+	if [[ -z "${nvidia_version}" ]]; then
+		echo "Error: Could not extract NVIDIA version from version.mk."
+		exit 4
+	fi
+else
+	echo "Externally-set NVIDIA_VERSION: '${NVIDIA_VERSION}'"
+	declare nvidia_version="${NVIDIA_VERSION}"
 fi
 
-# Parse the "NVIDIA_VERSION = 575.64.05" line; take anything after the '=' sign and trim
-declare nvidia_version
-nvidia_version="$(grep "^NVIDIA_VERSION" "${version_file}" | cut -d '=' -f 2 | tr -d '[:space:]')"
-
-echo "--> NVIDIA version extracted from version.mk: '${nvidia_version}'"
-if [[ -z "${nvidia_version}" ]]; then
-	echo "Error: Could not extract NVIDIA version from version.mk."
-	exit 4
-fi
+# Default NVIDIA_TYPE_DRIVER to "open" if not set
+NVIDIA_TYPE_DRIVER="${NVIDIA_TYPE_DRIVER:-"open"}"
 
 # Prepare the rpmbuild directory structure, under a temporary directory
 declare tmp_rpmbuild_dir
@@ -83,12 +92,12 @@ for ko in "${kos_absolute_paths[@]}"; do
 done
 
 # Create the SPEC
-declare spec_file="${tmp_rpmbuild_dir}/SPECS/nvidia-open.spec"
+declare spec_file="${tmp_rpmbuild_dir}/SPECS/nvidia-${NVIDIA_TYPE_DRIVER}.spec"
 cat << SPEC_FILE > "${spec_file}"
-Name:           nvidia-open
+Name:           nvidia-${NVIDIA_TYPE_DRIVER}
 Version:        %{KERNEL_VERSION_FULL}.%{NVIDIA_VERSION}
 Release:        1
-Summary:        nvidia open modules %{TOOLCHAIN_ARCH}
+Summary:        nvidia ${NVIDIA_TYPE_DRIVER} modules %{TOOLCHAIN_ARCH}
 License:        GPLv2
 URL:            https://github.com/NVIDIA/open-gpu-kernel-modules
 
@@ -100,7 +109,7 @@ Provides:       something-something-from-nvidia
 %define debug_package %{nil}
 
 %description
-nvidia open modules %{NVIDIA_VERSION} for el-kernel-lts %{KVERSION} for %{TOOLCHAIN_ARCH}
+nvidia ${NVIDIA_TYPE_DRIVER} modules %{NVIDIA_VERSION} for el-kernel-lts %{KVERSION} for %{TOOLCHAIN_ARCH}
 
 %prep
 # Nothing.
@@ -114,14 +123,14 @@ $(cat "${install_section_file}")
 %post
 set -x
 /sbin/depmod "%{KVERSION}" || true
-echo "nvidia open modules %{NVIDIA_VERSION} for el-kernel-lts %{KVERSION} for %{TOOLCHAIN_ARCH} installed."
+echo "nvidia ${NVIDIA_TYPE_DRIVER} modules %{NVIDIA_VERSION} for el-kernel-lts %{KVERSION} for %{TOOLCHAIN_ARCH} installed."
 
 %files
 $(cat "${files_section_file}")
 
 %changelog
 * Mon Jul 14 2025 Your Name <you@example.com> - %{NVIDIA_VERSION}-%{KERNEL_VERSION_FULL}-1
-- nvidia open modules %{NVIDIA_VERSION} for el-kernel-lts %{KERNEL_VERSION_FULL} for %{TOOLCHAIN_ARCH}
+- nvidia ${NVIDIA_TYPE_DRIVER} modules %{NVIDIA_VERSION} for el-kernel-lts %{KERNEL_VERSION_FULL} for %{TOOLCHAIN_ARCH}
 SPEC_FILE
 
 # Show the tree of the rpmbuild directory

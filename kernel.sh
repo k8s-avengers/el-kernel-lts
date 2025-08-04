@@ -19,6 +19,11 @@ declare PX_FUSE_BRANCH="v3.1.0-rpm-fixes-btf-nodeps"
 # Different make rpm-pkg / make binrpm-pkg - 6.12+ can't build without a git tree; 6.1 doesn't build devel without binrpm-pkg
 declare MAKE_COMMAND_RPM="rpm-pkg"
 
+# Different NVIDIA settings for different kernel versions and arch
+declare NVIDIA_NONFREE_RUN_URL="undefined-nonfree-run-url" # varies per-arch
+declare NVIDIA_NONFREE_STAGE="nvidianonfreebuilder"        # defaults to building the nonfree modules TODO not used yet
+declare NVIDIA_NONFREE_VERSION="undefined"
+
 # Determine the architecture we're running on, as that will be the target architecture for the kernel build.
 declare OS_ARCH="undefined" TOOLCHAIN_ARCH="undefined"
 OS_ARCH="$(uname -m)"
@@ -45,6 +50,36 @@ case "${KERNEL_MINOR}" in
 		PAHOLE_VERSION="v1.30"
 		PX_FUSE_BRANCH="v-aaaae3e-6.12-rpm-btf-fixes-2"
 		MAKE_COMMAND_RPM="binrpm-pkg"
+		;;
+esac
+
+# Decide nvidia nonfree stuff. This ends up all hardcoded, and _will_ break over time
+# Go find the latests builds via https://www.nvidia.com/en-us/drivers/ and https://us.download.nvidia.com/XFree86/Linux-x86_64/
+# or https://us.download.nvidia.com/XFree86/aarch64/ for arm64
+case "${TOOLCHAIN_ARCH}:${KERNEL_MINOR}:" in
+	"x86_64:1:") # 535, it probably builds for .1, as it works for aarch64. CONFIRMED
+		NVIDIA_NONFREE_VERSION="535.261.03"
+		NVIDIA_NONFREE_RUN_URL="https://us.download.nvidia.com/XFree86/Linux-x86_64/535.261.03/NVIDIA-Linux-x86_64-535.261.03.run"
+		# If not, bump to 570: https://us.download.nvidia.com/XFree86/Linux-x86_64/570.172.08/NVIDIA-Linux-x86_64-570.172.08.run
+		;;
+	"x86_64:12:") # 535 builds fine for .12 on amd64, but NOT on aarch64 - CONFIRMED
+		NVIDIA_NONFREE_VERSION="535.261.03"
+		NVIDIA_NONFREE_RUN_URL="https://us.download.nvidia.com/XFree86/Linux-x86_64/535.261.03/NVIDIA-Linux-x86_64-535.261.03.run"
+		# If not, bump to 570: https://us.download.nvidia.com/XFree86/Linux-x86_64/570.172.08/NVIDIA-Linux-x86_64-570.172.08.run
+		;;
+
+	"aarch64:1:") # 535 builds with .1 on arm64, but NOT with .12 - CONFIRMED
+		NVIDIA_NONFREE_VERSION="535.261.03"
+		NVIDIA_NONFREE_RUN_URL="https://us.download.nvidia.com/XFree86/aarch64/535.261.03/NVIDIA-Linux-aarch64-535.261.03.run"
+		;;
+	"aarch64:12:") # 570 builds fine for .12 on arm64 - CONFIRMED
+		NVIDIA_NONFREE_VERSION="570.172.08"
+		NVIDIA_NONFREE_RUN_URL="https://us.download.nvidia.com/XFree86/aarch64/570.172.08/NVIDIA-Linux-aarch64-570.172.08.run"
+		;;
+
+	*)
+		echo "ERROR: Unsupported TOOLCHAIN_ARCH:${TOOLCHAIN_ARCH} and KERNEL_MINOR:${KERNEL_MINOR} combination for NVIDIA nonfree run URL." >&2
+		exit 1
 		;;
 esac
 
@@ -103,6 +138,9 @@ declare -a build_args=(
 	"--build-arg" "MAKE_COMMAND_RPM=${MAKE_COMMAND_RPM}"
 	"--build-arg" "GCC_TOOLSET_NAME=${GCC_TOOLSET_NAME}"
 	"--build-arg" "PX_FUSE_BRANCH=${PX_FUSE_BRANCH}"
+	"--build-arg" "NVIDIA_NONFREE_RUN_URL=${NVIDIA_NONFREE_RUN_URL}"
+	"--build-arg" "NVIDIA_NONFREE_STAGE=${NVIDIA_NONFREE_STAGE}"
+	"--build-arg" "NVIDIA_NONFREE_VERSION=${NVIDIA_NONFREE_VERSION}"
 )
 
 echo "-- Args: ${build_args[*]}" >&2
