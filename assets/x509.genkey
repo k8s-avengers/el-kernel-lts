@@ -6,8 +6,8 @@ string_mask = utf8only
 x509_extensions = myexts
 
 [ req_distinguished_name ]
-O = kernel-lts
-CN = kernel-lts kernel key
+O = kernel-lts KVERSION
+CN = kernel-lts kernel key KVERSION
 emailAddress = kernel-lts@unspecified.company
 
 [ myexts ]

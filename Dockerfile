@@ -72,6 +72,9 @@ RUN git clone https://git.kernel.org/pub/scm/devel/pahole/pahole.git && \
 # Prepare signing keys in this common layer; both kernel and px module will use it.
 WORKDIR /keys
 ADD assets/x509.genkey .
+ARG KVERSION
+RUN sed -i \"s|KVERSION|${KVERSION}|g\" x509.genkey
+RUN echo Contents of x509.genkey; cat x509.genkey
 RUN openssl req -new -nodes -utf8 -sha256 -days 36500 -batch -x509 -config x509.genkey -outform PEM -out kernel_key.pem -keyout kernel_key.pem
 RUN echo Sign with: $(realpath /keys/kernel_key.pem) >&2
 
@@ -272,6 +275,11 @@ RUN modinfo ./rpm/px/BUILD/px-src/px.ko >&2
 RUN ls -laht rpm/px/RPMS/${TOOLCHAIN_ARCH}/*.rpm >&2
 RUN ls -laht rpm/px/SRPMS/*.rpm >&2
 RUN echo 'rpm  info'; rpm -qRp rpm/px/RPMS/${TOOLCHAIN_ARCH}/*.rpm
+
+# Install the RPM to make sure of sanity
+RUN dnf install -y rpm/px/RPMS/${TOOLCHAIN_ARCH}/*.rpm
+# Modinfo the installed module to make sure it is sane
+RUN modinfo  /lib/modules/${KVERSION}/extra/px.ko
 
 RUN mkdir /out-px
 RUN cp -rvp rpm/px/RPMS /out-px/
