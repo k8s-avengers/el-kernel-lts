@@ -71,6 +71,12 @@ else
 	declare nvidia_version="${NVIDIA_VERSION}"
 fi
 
+# if KERNEL_RPM_VERSION is unset, bomb.
+if [[ -z "${KERNEL_RPM_VERSION}" ]]; then
+	echo "Error: KERNEL_RPM_VERSION is not set in environment."
+	exit 1
+fi
+
 # Default NVIDIA_TYPE_DRIVER to "open" if not set
 NVIDIA_TYPE_DRIVER="${NVIDIA_TYPE_DRIVER:-"open"}"
 
@@ -95,7 +101,7 @@ done
 declare spec_file="${tmp_rpmbuild_dir}/SPECS/nvidia-${NVIDIA_TYPE_DRIVER}.spec"
 cat << SPEC_FILE > "${spec_file}"
 Name:           nvidia-${NVIDIA_TYPE_DRIVER}-el-lts-modules
-Version:        %{KERNEL_VERSION_FULL}.%{NVIDIA_VERSION}
+Version:        %{KERNEL_VERSION_FULL}.%{NVIDIA_VERSION}.${KERNEL_RPM_VERSION}
 Release:        1
 Summary:        nvidia ${NVIDIA_TYPE_DRIVER} modules %{TOOLCHAIN_ARCH}
 License:        GPLv2
@@ -112,7 +118,7 @@ Provides:       nvidia-kmod-common
 %define debug_package %{nil}
 
 %description
-nvidia ${NVIDIA_TYPE_DRIVER} modules %{NVIDIA_VERSION} for el-kernel-lts %{KVERSION} for %{TOOLCHAIN_ARCH}
+nvidia ${NVIDIA_TYPE_DRIVER} modules %{NVIDIA_VERSION} ${KERNEL_RPM_VERSION} for el-kernel-lts %{KVERSION} for %{TOOLCHAIN_ARCH}
 
 %prep
 # Nothing.
@@ -126,14 +132,14 @@ $(cat "${install_section_file}")
 %post
 set -x
 /sbin/depmod "%{KVERSION}" || true
-echo "nvidia ${NVIDIA_TYPE_DRIVER} modules %{NVIDIA_VERSION} for el-kernel-lts %{KVERSION} for %{TOOLCHAIN_ARCH} installed."
+echo "nvidia ${NVIDIA_TYPE_DRIVER} modules %{NVIDIA_VERSION} ${KERNEL_RPM_VERSION} for el-kernel-lts %{KVERSION} for %{TOOLCHAIN_ARCH} installed."
 
 %files
 $(cat "${files_section_file}")
 
 %changelog
-* Mon Jul 14 2025 Your Name <you@example.com> - %{NVIDIA_VERSION}-%{KERNEL_VERSION_FULL}-1
-- nvidia ${NVIDIA_TYPE_DRIVER} modules %{NVIDIA_VERSION} for el-kernel-lts %{KERNEL_VERSION_FULL} for %{TOOLCHAIN_ARCH}
+* Mon Jul 14 2025 Your Name <you@example.com> - %{KERNEL_VERSION_FULL}.%{NVIDIA_VERSION}.${KERNEL_RPM_VERSION}-1
+- nvidia ${NVIDIA_TYPE_DRIVER} modules %{NVIDIA_VERSION} ${KERNEL_RPM_VERSION} for el-kernel-lts %{KERNEL_VERSION_FULL} for %{TOOLCHAIN_ARCH}
 SPEC_FILE
 
 # Show the tree of the rpmbuild directory
