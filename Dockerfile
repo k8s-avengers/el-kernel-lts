@@ -279,7 +279,8 @@ RUN echo 'rpm  info'; rpm -qRp rpm/px/RPMS/${TOOLCHAIN_ARCH}/*.rpm
 # Install the RPM to make sure of sanity
 RUN dnf install -y rpm/px/RPMS/${TOOLCHAIN_ARCH}/*.rpm
 # Modinfo the installed module to make sure it is sane
-RUN modinfo  /lib/modules/${KVERSION}/extra/px.ko
+RUN find /lib/modules/${KVERSION} -type f -name px.ko
+RUN modinfo $(find /lib/modules/${KVERSION} -type f -name px.ko)
 
 RUN mkdir /out-px
 RUN cp -rvp rpm/px/RPMS /out-px/
