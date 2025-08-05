@@ -20,6 +20,7 @@ declare PX_FUSE_BRANCH="v3.1.0-rpm-fixes-btf-nodeps"
 declare MAKE_COMMAND_RPM="rpm-pkg"
 
 # Different NVIDIA settings for different kernel versions and arch
+declare NVIDIA_OPEN_BRANCH="570"                           # Open driver "Production Branch", see https://www.nvidia.com/en-us/drivers/unix/
 declare NVIDIA_NONFREE_RUN_URL="undefined-nonfree-run-url" # varies per-arch
 declare NVIDIA_NONFREE_STAGE="nvidianonfreebuilder"        # defaults to building the nonfree modules TODO not used yet
 declare NVIDIA_NONFREE_VERSION="undefined"
@@ -141,6 +142,7 @@ declare -a build_args=(
 	"--build-arg" "NVIDIA_NONFREE_RUN_URL=${NVIDIA_NONFREE_RUN_URL}"
 	"--build-arg" "NVIDIA_NONFREE_STAGE=${NVIDIA_NONFREE_STAGE}"
 	"--build-arg" "NVIDIA_NONFREE_VERSION=${NVIDIA_NONFREE_VERSION}"
+	"--build-arg" "NVIDIA_OPEN_BRANCH=${NVIDIA_OPEN_BRANCH}"
 )
 
 echo "-- Args: ${build_args[*]}" >&2

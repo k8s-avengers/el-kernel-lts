@@ -285,9 +285,10 @@ ARG KVERSION
 ARG OS_ARCH
 ARG TOOLCHAIN_ARCH
 ARG KERNEL_VERSION_FULL
+ARG NVIDIA_OPEN_BRANCH
 
 WORKDIR /src/nvidia-open
-RUN git clone --branch=main --single-branch https://github.com/NVIDIA/open-gpu-kernel-modules.git
+RUN git clone --branch=${NVIDIA_OPEN_BRANCH} --single-branch https://github.com/NVIDIA/open-gpu-kernel-modules.git
 WORKDIR /src/nvidia-open/open-gpu-kernel-modules
 RUN make KERNEL_UNAME=${KVERSION} modules -j$(nproc)
 RUN make KERNEL_UNAME=${KVERSION}  modules_install
