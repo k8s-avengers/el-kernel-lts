@@ -109,9 +109,17 @@ URL:            https://github.com/NVIDIA/open-gpu-kernel-modules
 
 BuildArch:      %{TOOLCHAIN_ARCH}
 
-# nvidia-kmod-common is a dependency of nvidia-driver-cuda userspace stuff (once you dnf module enable nvidia-driver:535)
-# TODO: might be we need to provide the version eg "3:535.261.03"
-Provides:       nvidia-kmod-common
+# nvidia-kmod-common is a dependency of nvidia-driver-cuda userspace stuff (once you dnf module enable nvidia-driver:580)
+# nvidia-kmod-common itself contains the matching/required gsp firmware files. THANKS NVIDIA, brilliant idea :-( !!
+# So let's provide what nvidia-kmod-common requires, which is the kmod-nvidia/nvidia-kmod package of a certain version.
+Provides:       nvidia-kmod
+Provides:       kmod-nvidia
+Provides:       nvidia-kmod = 3:%{NVIDIA_VERSION}
+Provides:       kmod-nvidia = 3:%{NVIDIA_VERSION}
+Provides:       nvidia-kmod = 4:%{NVIDIA_VERSION}
+Provides:       kmod-nvidia = 4:%{NVIDIA_VERSION}
+Provides:       nvidia-kmod = 5:%{NVIDIA_VERSION}
+Provides:       kmod-nvidia = 5:%{NVIDIA_VERSION}
 
 # From mainline linux's mkspec, to convince rpmbuild to not strip the module (and avoid breaking BTF info, if any, and signature, if any)
 %define __spec_install_post /usr/lib/rpm/brp-compress || :
